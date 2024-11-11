@@ -9,18 +9,6 @@ services:
       - "8180:8080"
     volumes:
       - ./src/backend/data:/pb/pb_data
-      # - ./src/backend/hooks:/pb/pb_hooks
+      - ./src/backend/hooks:/pb/pb_hooks
       - ./src/backend/migrations:/pb/pb_migrations
     restart: unless-stopped
-
-  # frontend:
-  #   build:
-  #     context: ./src/frontend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - backend
-  #   environment:
-  #     - VITE_API_URL=http://localhost:8090
-  #   restart: unless-stopped
