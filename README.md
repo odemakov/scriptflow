@@ -26,3 +26,9 @@ YASS consists of two main components:
 ### Using Docker (Recommended)
 
 1. Clone the repository:
+
+### Development
+
+`cd scc/backend`
+
+`go run main.go --dir ../data/ serve`
