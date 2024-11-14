@@ -1,37 +1,37 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/desops/sshpool"
 	"github.com/go-co-op/gocron"
+	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
-	"golang.org/x/crypto/ssh"
 )
 
-// define tasks collection name constant
-const CollectionTasks = "tasks"
-const CollectionRuns = "runs"
-const CollectionNodes = "nodes"
+const (
+    CollectionTasks = "tasks"
+    CollectionRuns  = "runs"
+    CollectionNodes = "nodes"
+)
 
 type ScriptService struct {
     app       *pocketbase.PocketBase
     scheduler *gocron.Scheduler
+    pool      *sshrun.Pool
 }
 
-func NewScriptService(app *pocketbase.PocketBase) *ScriptService {
+func NewScriptService(app *pocketbase.PocketBase, pool *sshrun.Pool) *ScriptService {
     return &ScriptService{
         app:       app,
         scheduler: gocron.NewScheduler(time.UTC),
+        pool:      pool,
     }
 }
 
@@ -62,37 +62,19 @@ func (s *ScriptService) ScheduleTask(task *models.Record) {
                 task.GetString("schedule"),
             )
 
-            _, err := s.scheduler.Tag(task.Id).SingletonMode().Cron(task.GetString("schedule")).Do(s.runTask, task, node)
-            if err != nil {
-                log.Printf("Failed to schedule task: %v", err)
+            if task.GetBool("singleton") {
+                _, err := s.scheduler.Tag(task.Id).SingletonMode().Cron(task.GetString("schedule")).Do(s.runTask, task, node)
+                if err != nil {
+                    log.Printf("Failed to schedule task: %v", err)
+                }
+            } else {
+                _, err := s.scheduler.Tag(task.Id).Cron(task.GetString("schedule")).Do(s.runTask, task, node)
+                if err != nil {
+                    log.Printf("Failed to schedule task: %v", err)
+                }
             }
         }
     }
-}
-
-func (s *ScriptService) GetNodeConnection(node *models.Record) (*ssh.Session, error) {
-    privateKey := node.GetString("private_key")
-    /*  */signer, err := GetPrivateKey(&privateKey)
-    if err != nil {
-        return nil, err
-    }
-
-    config := &ssh.ClientConfig{
-		User: node.GetString("username"),
-		Auth: []ssh.AuthMethod{
-            ssh.PublicKeys(signer),
-		},
-        HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-
-    pool := sshpool.New(config, nil)
-    session, err := pool.Get(node.GetString("host"))
-    if err != nil {
-        return nil, err
-    }
-    defer session.Put() // important: this returns it to the pool
-
-    return session.Session, nil
 }
 
 // run task on node
@@ -104,65 +86,41 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
         return
     }
 
-    // create `run` record
+    // create run record
     run := models.NewRecord(runCollection)
     run.Set("task", task.Id)
 
-    // connect to node
-    session, err := s.GetNodeConnection(node)
-    if err != nil {
-        log.Printf("Failed get connection to node %s: %v", node.GetString("host"), err)
-        run.Set("stderr", err.Error())
-        run.Set("exit_code", 255)
-        if err := s.app.Dao().SaveRecord(run); err != nil {
-            log.Printf("Failed to save run log: %v", err)
-        }
-        return
+    sshCfg := &sshrun.SSHConfig{
+        User: node.GetString("username"),
+        Host: node.GetString("host"),
     }
 
     log.Printf("Running command '%s' on node '%s'", task.GetString("command"), node.GetString("host"))
-    // fmt.Fprintln(os.Stderr, "Random error")
-    var stdout, stderr bytes.Buffer
-    session.Stdout = &stdout
-    session.Stderr = &stderr
+    result, err := s.pool.Run(sshCfg, task.GetString("command"))
+    log.Printf("Result: %v", result)
+    log.Printf("Error: %v", err)
     exitCode := 0
-
-    if err := session.Run(task.GetString("command")); err != nil {
-        ee, ok := err.(*ssh.ExitError)
-        if ok {
-            exitCode = ee.ExitStatus()
-            fmt.Fprintf(os.Stderr, "remote command exit status %d\n", exitCode)
-        } else {
-            exitCode = 255
+    if err != nil {
+        switch e := err.(type) {
+        case *sshrun.SSHError:
+            run.Set("connection_error", e.Msg)
+            if err := s.app.Dao().SaveRecord(run); err != nil {
+                log.Printf("Failed to save run log: %v", err)
+            }
+        case *sshrun.CommandError:
+            exitCode = result.ExitCode
+        default:
+            log.Printf("Unknown error: %v", err)
+            return
         }
     }
-
-    run.Set("stdout", stdout.String())
-    run.Set("stderr", stderr.String())
+    run.Set("command", task.GetString("command"))
+    run.Set("stdout", result.Stdout)
+    run.Set("stderr", result.Stderr)
     run.Set("exit_code", exitCode)
     if err := s.app.Dao().SaveRecord(run); err != nil {
         log.Printf("Failed to save run log: %v", err)
     }
-}
-
-func GetPrivateKey(privateKey *string) (ssh.Signer, error) {
-    if *privateKey == "" {
-        homeDir, err := os.UserHomeDir()
-        if err != nil {
-            return nil, err
-        }
-        keyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
-        privateKey = &keyPath
-    }
-    key, err := os.ReadFile(*privateKey)
-    if err != nil {
-        return nil, err
-    }
-    signer, err := ssh.ParsePrivateKey(key)
-    if err != nil {
-        return nil, err
-    }
-    return signer, nil
 }
 
 func FindActiveTasks(dao *daos.Dao) ([]*models.Record, error) {
@@ -190,7 +148,19 @@ func FindNodes(dao *daos.Dao, task *models.Record) ([]*models.Record, error) {
 func main() {
     app := pocketbase.New()
 
-    scriptService := NewScriptService(app)
+    // get home directory of current user
+    homeDir, err := os.UserHomeDir()
+    if err != nil {
+        log.Fatalf("Failed to get home directory: %v", err)
+    }
+
+    runCfg := &sshrun.RunConfig{
+        Debug: true,
+        PrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
+    }
+    sshPool := sshrun.NewPool(runCfg)
+
+    scriptService := NewScriptService(app, sshPool)
     scriptService.Start()
 
     // Schedule existing tasks
