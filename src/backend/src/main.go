@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,14 @@ const (
     NodeStatusOnline = "online"
     NodeStatusOffline = "offline"
     SchedulePeriod = 60 // max delay in seconds for tasks with @every schedule
+    LogsBasePath = "logs"
+)
+
+const (
+    RunStatusStarted     = "started"
+    RunStatusError       = "error"
+    RunStatusCompleted   = "completed"
+    RunStatusInterrupted = "interrupted"
 )
 
 type ScriptService struct {
@@ -98,7 +108,7 @@ func (s *ScriptService) scheduleTask(task *models.Record) {
 
 // run task on node
 func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
-    // update node as status could have changed
+    // fetch node as status could have changed
     node, err := s.app.Dao().FindRecordById(CollectionNodes, node.Id)
     if err != nil {
         log.Printf("Failed to find node: %v", err)
@@ -121,6 +131,43 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
     // create run record
     run := models.NewRecord(runCollection)
     run.Set("task", task.Id)
+    run.Set("command", task.GetString("command"))
+    run.Set("host", node.GetString("host"))
+    run.Set("status", RunStatusStarted)
+    if err := s.app.Dao().SaveRecord(run); err != nil {
+        log.Printf("Failed to save run log: %v", err)
+        return
+    }
+
+    // create log directory if doesn't exist
+    logDir := runLogPath(s.app, task, run)
+    if _, err := os.Stat(logDir); os.IsNotExist(err) {
+        if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
+            log.Printf("Failed to create log directory: %v", err)
+            return
+        }
+    }
+
+    // we can't use blob storage here as it doesn't support append
+    // I don't want to loose logs if the task fails
+    filePath := filepath.Join(logDir, taskLogName(run))
+    var logFile *os.File
+    // if file exists, open it in append mode
+    if _, err := os.Stat(filePath); err == nil {
+        logFile, err = os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+        if err != nil {
+            log.Printf("Failed to open log file: %v", err)
+            return
+        }
+        defer logFile.Close()
+    } else {
+        logFile, err = os.Create(filePath)
+        if err != nil {
+            log.Printf("Failed to create log file: %v", err)
+            return
+        }
+        defer logFile.Close()
+    }
 
     sshCfg := &sshrun.SSHConfig{
         User: node.GetString("username"),
@@ -128,18 +175,22 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
     }
 
     log.Printf("Running command '%s' on node '%s'", task.GetString("command"), node.GetString("host"))
-    // create buffer for stderr and stdout to fill them in Run'd callbacks
-    stdOut, stdErr := "", ""
-    exitCode, err := s.pool.Run(
+    // create run log and save it to the database
+    exitCode, err := s.pool.RunCombined(
         sshCfg,
         task.GetString("command"),
-        func(stdout string) {
-            stdOut += stdout
-        },
-        func(stderr string) {
-            stdErr += stderr
+        func(out string) {
+            // append output to log file
+            if _, err := logFile.WriteString(out); err != nil {
+                log.Printf("Failed to write to log file: %v", err)
+            }
         },
     )
+    // close file
+    if err := logFile.Close(); err != nil {
+        log.Printf("Failed to close log file: %v", err)
+    }
+
     if err != nil {
         switch e := err.(type) {
         case *sshrun.SSHError:
@@ -147,7 +198,6 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
             if err := s.app.Dao().SaveRecord(run); err != nil {
                 log.Printf("Failed to save run log: %v", err)
             }
-            s.pool.Put(node.GetString("host"))
         case *sshrun.CommandError:
             log.Printf("Command error: %v", err)
         default:
@@ -155,10 +205,8 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
             return
         }
     }
-    run.Set("command", task.GetString("command"))
-    run.Set("stdout", stdOut)
-    run.Set("stderr", stdErr)
     run.Set("exit_code", exitCode)
+    run.Set("status", RunStatusCompleted)
     if err := s.app.Dao().SaveRecord(run); err != nil {
         log.Printf("Failed to save run log: %v", err)
     }
@@ -198,6 +246,35 @@ func onBeforeServeScheduleActiveTasks(dao *daos.Dao, scriptService *ScriptServic
     for _, task := range tasks {
         go scriptService.scheduleTask(task)
     }
+}
+
+// function to generate file path based on run record
+// data/logs/2024/01/05/{task.Id}
+func runLogPath(app *pocketbase.PocketBase, task *models.Record, run *models.Record) string {
+    created := run.GetCreated()
+    year, month, day := created.Time().Date()
+
+    // format: 2021/01/01
+    return filepath.Join(
+        app.DataDir(),
+        LogsBasePath,
+        strconv.Itoa(year),
+        fmt.Sprintf("%02d", month),
+        fmt.Sprintf("%02d", day),
+        task.Id,
+    )
+}
+
+// function to generate log file name based on task record
+// {year}-{month}-{day}_{hour}-{minute}-{second}-{task.Id}.log
+func taskLogName(run *models.Record) string {
+    created := run.GetCreated()
+    year, month, day := created.Time().Date()
+    hour, minute, second := created.Time().Clock()
+    return fmt.Sprintf(
+        "%d%02d%02d-%02d%02d%02d.%s.log",
+        year, month, day, hour, minute, second, run.Id,
+    )
 }
 
 func main() {
