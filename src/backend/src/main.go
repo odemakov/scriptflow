@@ -2,8 +2,11 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -13,18 +16,23 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 )
 
 const (
     CollectionTasks = "tasks"
     CollectionRuns  = "runs"
     CollectionNodes = "nodes"
+    NodeStatusOnline = "online"
+    NodeStatusOffline = "offline"
+    SchedulePeriod = 60 // max delay in seconds for tasks with @every schedule
 )
 
 type ScriptService struct {
     app       *pocketbase.PocketBase
     scheduler *gocron.Scheduler
     pool      *sshrun.Pool
+    lock      sync.Mutex
 }
 
 func NewScriptService(app *pocketbase.PocketBase, pool *sshrun.Pool) *ScriptService {
@@ -39,20 +47,31 @@ func (s *ScriptService) Start() {
     s.scheduler.StartAsync()
 }
 
-func (s *ScriptService) ScheduleTask(task *models.Record) {
+func (s *ScriptService) scheduleTask(task *models.Record) {
+    // Acquire lock to ensure scheduler access is thread-safe
+    s.lock.Lock()
+    defer s.lock.Unlock()
+
     // remove existing task
     s.scheduler.RemoveByTag(task.Id)
 
     // schedule new task if active
     if task.GetBool("active") {
         // find task nodes
-        nodes, err := FindNodes(s.app.Dao(), task)
+        nodes, err := findNodes(s.app.Dao(), task)
         if err != nil {
             log.Printf("Failed to find node for task %v: %v", task, err)
             return
         }
 
         for _, node := range nodes {
+            // if task.schedule begins with @
+            if strings.HasPrefix(task.GetString("schedule"), "@") {
+                // for @every 1m schedule task would run every minute from now
+                // we add random delay here to avoid running all tasks at the same time
+                time.Sleep(time.Duration(time.Second * time.Duration(rand.Intn(SchedulePeriod))))
+            }
+
             log.Printf(
                 "Scheduling task '%s' on node '%s@%s', command: '%s', cron: '%s'",
                 task.GetString("name"),
@@ -79,6 +98,19 @@ func (s *ScriptService) ScheduleTask(task *models.Record) {
 
 // run task on node
 func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
+    // update node as status could have changed
+    node, err := s.app.Dao().FindRecordById(CollectionNodes, node.Id)
+    if err != nil {
+        log.Printf("Failed to find node: %v", err)
+        return
+    }
+
+    // skip running task if node isn't online 
+    if node.GetString("status") != NodeStatusOnline {
+        log.Printf("Node '%s' is not online, skip task %s", node.GetString("host"), task.Id)
+        return
+    }
+
     // find run collection
     runCollection, err := s.app.Dao().FindCollectionByNameOrId(CollectionRuns)
     if err != nil {
@@ -96,10 +128,18 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
     }
 
     log.Printf("Running command '%s' on node '%s'", task.GetString("command"), node.GetString("host"))
-    result, err := s.pool.Run(sshCfg, task.GetString("command"))
-    log.Printf("Result: %v", result)
-    log.Printf("Error: %v", err)
-    exitCode := 0
+    // create buffer for stderr and stdout to fill them in Run'd callbacks
+    stdOut, stdErr := "", ""
+    exitCode, err := s.pool.Run(
+        sshCfg,
+        task.GetString("command"),
+        func(stdout string) {
+            stdOut += stdout
+        },
+        func(stderr string) {
+            stdErr += stderr
+        },
+    )
     if err != nil {
         switch e := err.(type) {
         case *sshrun.SSHError:
@@ -107,23 +147,24 @@ func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
             if err := s.app.Dao().SaveRecord(run); err != nil {
                 log.Printf("Failed to save run log: %v", err)
             }
+            s.pool.Put(node.GetString("host"))
         case *sshrun.CommandError:
-            exitCode = result.ExitCode
+            log.Printf("Command error: %v", err)
         default:
             log.Printf("Unknown error: %v", err)
             return
         }
     }
     run.Set("command", task.GetString("command"))
-    run.Set("stdout", result.Stdout)
-    run.Set("stderr", result.Stderr)
+    run.Set("stdout", stdOut)
+    run.Set("stderr", stdErr)
     run.Set("exit_code", exitCode)
     if err := s.app.Dao().SaveRecord(run); err != nil {
         log.Printf("Failed to save run log: %v", err)
     }
 }
 
-func FindActiveTasks(dao *daos.Dao) ([]*models.Record, error) {
+func findActiveTasks(dao *daos.Dao) ([]*models.Record, error) {
     query := dao.RecordQuery(CollectionTasks).
         AndWhere(dbx.HashExp{"active": true}).
         Limit(100)
@@ -136,7 +177,7 @@ func FindActiveTasks(dao *daos.Dao) ([]*models.Record, error) {
 }
 
 // find nodes for task
-func FindNodes(dao *daos.Dao, task *models.Record) ([]*models.Record, error) {
+func findNodes(dao *daos.Dao, task *models.Record) ([]*models.Record, error) {
     ids := task.GetStringSlice("nodes")
     records, err := dao.FindRecordsByIds(CollectionNodes, ids)
     if err != nil {
@@ -145,8 +186,30 @@ func FindNodes(dao *daos.Dao, task *models.Record) ([]*models.Record, error) {
     return records, nil
 }
 
+func onBeforeServeScheduleActiveTasks(dao *daos.Dao, scriptService *ScriptService) {
+    // find all active tasks
+    tasks, err := findActiveTasks(dao)
+    if err != nil {
+        log.Printf("Failed to find active tasks: %v", err)
+        return
+    }
+    log.Printf("Found %d active tasks", len(tasks))
+    // schedule them one by one
+    for _, task := range tasks {
+        go scriptService.scheduleTask(task)
+    }
+}
+
 func main() {
     app := pocketbase.New()
+
+    // loosely check if it was executed using "go run"
+    isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
+    migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+        // enable auto creation of migration files when making collection changes in the Admin UI
+        // (the isGoRun check is to enable it only during development)
+        Automigrate: isGoRun,
+    })
 
     // get home directory of current user
     homeDir, err := os.UserHomeDir()
@@ -155,7 +218,7 @@ func main() {
     }
 
     runCfg := &sshrun.RunConfig{
-        Debug: true,
+        Debug: false,
         PrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
     }
     sshPool := sshrun.NewPool(runCfg)
@@ -163,26 +226,29 @@ func main() {
     scriptService := NewScriptService(app, sshPool)
     scriptService.Start()
 
+    // schedule system tasks
+    app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+        // run NodeStatus task right away
+        go jobNodeStatus(app.Dao(), sshPool) 
+
+        // schedule NodeStatus task to run every minute
+        log.Printf("Scheduling system tasks")
+        scriptService.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func ()  {
+           go jobNodeStatus(app.Dao(), sshPool) 
+        })
+        return nil
+    })
+
     // Schedule existing tasks
     app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-        // find all active tasks
-        tasks, err := FindActiveTasks(app.Dao())
-        if err != nil {
-            log.Printf("Failed to find active tasks: %v", err)
-            return nil
-        }
-        log.Printf("Found %d active tasks", len(tasks))
-        // schedule them one by one
-        for _, task := range tasks {
-            scriptService.ScheduleTask(task)
-        }
+        onBeforeServeScheduleActiveTasks(app.Dao(), scriptService)
         return nil
     })
 
     // Schedule new tasks
     app.OnRecordAfterCreateRequest().Add(func(e *core.RecordCreateEvent) error {
         if e.Record.Collection().Name == CollectionTasks {
-            scriptService.ScheduleTask(e.Record)
+            go scriptService.scheduleTask(e.Record)
         }
         return nil
     })
@@ -190,7 +256,7 @@ func main() {
     // Update exsisitng task
     app.OnRecordAfterUpdateRequest().Add(func(e *core.RecordUpdateEvent) error {
         if e.Record.Collection().Name == CollectionTasks {
-            scriptService.ScheduleTask(e.Record)
+            go scriptService.scheduleTask(e.Record)
         }
         return nil
     })
