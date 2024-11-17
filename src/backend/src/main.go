@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -45,6 +46,7 @@ type ScriptService struct {
     lock      sync.Mutex
 }
 
+// func convert task to string for logs
 func NewScriptService(app *pocketbase.PocketBase, pool *sshrun.Pool) *ScriptService {
     return &ScriptService{
         app:       app,
@@ -70,7 +72,7 @@ func (s *ScriptService) scheduleTask(task *models.Record) {
         // find task nodes
         nodes, err := findNodes(s.app.Dao(), task)
         if err != nil {
-            log.Printf("Failed to find node for task %v: %v", task, err)
+            s.app.Logger().Error("failed to find task", taskAttrs(task), slog.Any("error", err))
             return
         }
 
@@ -82,134 +84,179 @@ func (s *ScriptService) scheduleTask(task *models.Record) {
                 time.Sleep(time.Duration(time.Second * time.Duration(rand.Intn(SchedulePeriod))))
             }
 
-            log.Printf(
-                "Scheduling task '%s' on node '%s@%s', command: '%s', cron: '%s'",
-                task.GetString("name"),
-                node.GetString("username"),
-                node.GetString("host"),
-                task.GetString("command"),
-                task.GetString("schedule"),
-            )
-
+            // log scheduled task with task and node details
+            s.app.Logger().Info("schedule task", nodeAttrs(node), taskAttrs(task))
             if task.GetBool("singleton") {
-                _, err := s.scheduler.Tag(task.Id).SingletonMode().Cron(task.GetString("schedule")).Do(s.runTask, task, node)
+                _, err := s.scheduler.Tag(task.Id).
+                    SingletonMode().
+                    Cron(task.GetString("schedule")).
+                    Do(s.runTask, task.Id, node.Id)
                 if err != nil {
-                    log.Printf("Failed to schedule task: %v", err)
+                    s.app.Logger().Error("failed to schedule task", taskAttrs(task), nodeAttrs(node), slog.Any("error", err))
                 }
             } else {
-                _, err := s.scheduler.Tag(task.Id).Cron(task.GetString("schedule")).Do(s.runTask, task, node)
+                _, err := s.scheduler.Tag(task.Id).
+                    Cron(task.GetString("schedule")).
+                    Do(s.runTask, task.Id, node.Id)
                 if err != nil {
-                    log.Printf("Failed to schedule task: %v", err)
+                    s.app.Logger().Error("failed to schedule task", taskAttrs(task), nodeAttrs(node), slog.Any("error", err))
                 }
             }
         }
     }
 }
 
-// run task on node
-func (s *ScriptService) runTask(task *models.Record, node *models.Record) {
-    // fetch node as status could have changed
-    node, err := s.app.Dao().FindRecordById(CollectionNodes, node.Id)
+// run scheduled task
+func (s *ScriptService) runTask(taskId string, nodeId string) {
+    task, node, err := s.findNodeAndTaskToRun(taskId, nodeId)
     if err != nil {
-        log.Printf("Failed to find node: %v", err)
+        s.app.Logger().Error("failed to find node or task", slog.Any("error", err))
         return
     }
 
-    // skip running task if node isn't online 
+    // Create new run record
+    run, err := s.createRunRecord(task, node)
+    if err != nil {
+        s.app.Logger().Error("failed to create record", slog.Any("error", err))
+        return
+    }
+
+    // Ensure log directory exists
+    logDir := runLogPath(s.app, task, run)
+    if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
+        s.app.Logger().Error("failed to create log directory", slog.Any("error", err))
+        return
+    }
+
+    // Create and open log file
+    logFile, err := s.createLogFile(logDir, taskLogName(run))
+    if err != nil {
+        s.app.Logger().Error("failed to open log file", slog.Any("error", err))
+        return
+    }
+    defer logFile.Close()
+
+    // Configure SSH and run the command
+    sshCfg := &sshrun.SSHConfig{
+        User: node.GetString("username"),
+        Host: node.GetString("host"),
+    }
+
+    // Execute command and process output
+    s.app.Logger().Info("execute task", taskAttrs(task), nodeAttrs(node))
+    exitCode, err := s.executeCommand(sshCfg, task.GetString("command"), logFile)
+    if err != nil {
+        switch e := err.(type) {
+        case *sshrun.SSHError:
+            s.app.Logger().Error("SSH error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+            run.Set("connection_error", e.Msg)
+            run.Set("status", RunStatusInterrupted)
+        case *sshrun.CommandError:
+            s.app.Logger().Error("command error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+            run.Set("status", RunStatusError)
+            run.Set("exit_code", exitCode)
+        default:
+            s.app.Logger().Error("unhandled error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+            run.Set("status", RunStatusError)
+        }
+        if err := s.app.Dao().SaveRecord(run); err != nil {
+            s.app.Logger().Error("failed to save run record", slog.Any("error", err))
+        }
+    } else {
+        // Update run record with completion status
+        run.Set("exit_code", exitCode)
+        run.Set("status", RunStatusCompleted)
+        if err := s.app.Dao().SaveRecord(run); err != nil {
+            s.app.Logger().Error("failed to save run record(completed)", slog.Any("error", err))
+        }
+    }
+}
+
+// return node attributes for logging
+func nodeAttrs(node *models.Record) slog.Attr {
+    return slog.Any("node", map[string]interface{}{
+        "id":       node.Id,
+        "host":     node.GetString("host"),
+        "username": node.GetString("username"),
+    })
+}
+
+// return task attributes for logging
+func taskAttrs(task *models.Record) slog.Attr {
+    return slog.Any("task", map[string]interface{}{
+        "id":       task.Id,
+        "name":     task.GetString("name"),
+        "schedule": task.GetString("schedule"),
+    })
+}
+
+// return corresponding node and task to run
+// check that node is online and task is active
+func (s *ScriptService) findNodeAndTaskToRun(taskId string, nodeId string) (*models.Record, *models.Record, error) {
+    // Fetch node record
+    node, err := s.app.Dao().FindRecordById(CollectionNodes, nodeId)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    // Skip task if the node is offline
     if node.GetString("status") != NodeStatusOnline {
-        log.Printf("Node '%s' is not online, skip task %s", node.GetString("host"), task.Id)
-        return
+        s.app.Logger().Error("node is offline, skip", nodeAttrs(node))
+        return nil, nil, NewNodeStatusNotOnlineError()
     }
 
-    // find run collection
+    // Fetch task record
+    task, err := s.app.Dao().FindRecordById(CollectionTasks, taskId)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    // Skip task if it is not active
+    if !task.GetBool("active") {
+        s.app.Logger().Error("task is not active, skip", taskAttrs(task))
+        return nil, nil, NewTaskNotActiveError()
+    }
+
+    return task, node, nil
+}
+
+func (s *ScriptService) createLogFile(dir, filename string) (*os.File, error) {
+    filePath := filepath.Join(dir, filename)
+    if _, err := os.Stat(filePath); err == nil {
+        return os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+    }
+    return os.Create(filePath)
+}
+
+func (s *ScriptService) createRunRecord(task, node *models.Record) (*models.Record, error) {
     runCollection, err := s.app.Dao().FindCollectionByNameOrId(CollectionRuns)
     if err != nil {
-        log.Printf("Failed to find collection 'run': %v", err)
-        return
+        return nil, fmt.Errorf("unable to find collection '%s': %w", CollectionRuns, err)
     }
 
-    // create run record
     run := models.NewRecord(runCollection)
     run.Set("task", task.Id)
     run.Set("command", task.GetString("command"))
     run.Set("host", node.GetString("host"))
     run.Set("status", RunStatusStarted)
     if err := s.app.Dao().SaveRecord(run); err != nil {
-        log.Printf("Failed to save run log: %v", err)
-        return
+        return nil, fmt.Errorf("failed to save run record: %w", err)
     }
 
-    // create log directory if doesn't exist
-    logDir := runLogPath(s.app, task, run)
-    if _, err := os.Stat(logDir); os.IsNotExist(err) {
-        if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-            log.Printf("Failed to create log directory: %v", err)
-            return
-        }
-    }
+    return run, nil
+}
 
-    // we can't use blob storage here as it doesn't support append
-    // I don't want to loose logs if the task fails
-    filePath := filepath.Join(logDir, taskLogName(run))
-    var logFile *os.File
-    // if file exists, open it in append mode
-    if _, err := os.Stat(filePath); err == nil {
-        logFile, err = os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-        if err != nil {
-            log.Printf("Failed to open log file: %v", err)
-            return
-        }
-        defer logFile.Close()
-    } else {
-        logFile, err = os.Create(filePath)
-        if err != nil {
-            log.Printf("Failed to create log file: %v", err)
-            return
-        }
-        defer logFile.Close()
-    }
-
-    sshCfg := &sshrun.SSHConfig{
-        User: node.GetString("username"),
-        Host: node.GetString("host"),
-    }
-
-    log.Printf("Running command '%s' on node '%s'", task.GetString("command"), node.GetString("host"))
-    // create run log and save it to the database
-    exitCode, err := s.pool.RunCombined(
+func (s *ScriptService) executeCommand(sshCfg *sshrun.SSHConfig, command string, logFile *os.File) (int, error) {
+    return s.pool.RunCombined(
         sshCfg,
-        task.GetString("command"),
+        command,
         func(out string) {
-            // append output to log file
+            // Write output to log file
             if _, err := logFile.WriteString(out); err != nil {
-                log.Printf("Failed to write to log file: %v", err)
+                s.app.Logger().Error("failed to write to log file", slog.Any("error", err))
             }
         },
     )
-    // close file
-    if err := logFile.Close(); err != nil {
-        log.Printf("Failed to close log file: %v", err)
-    }
-
-    if err != nil {
-        switch e := err.(type) {
-        case *sshrun.SSHError:
-            run.Set("connection_error", e.Msg)
-            if err := s.app.Dao().SaveRecord(run); err != nil {
-                log.Printf("Failed to save run log: %v", err)
-            }
-        case *sshrun.CommandError:
-            log.Printf("Command error: %v", err)
-        default:
-            log.Printf("Unknown error: %v", err)
-            return
-        }
-    }
-    run.Set("exit_code", exitCode)
-    run.Set("status", RunStatusCompleted)
-    if err := s.app.Dao().SaveRecord(run); err != nil {
-        log.Printf("Failed to save run log: %v", err)
-    }
 }
 
 func findActiveTasks(dao *daos.Dao) ([]*models.Record, error) {
@@ -238,11 +285,10 @@ func onBeforeServeScheduleActiveTasks(dao *daos.Dao, scriptService *ScriptServic
     // find all active tasks
     tasks, err := findActiveTasks(dao)
     if err != nil {
-        log.Printf("Failed to find active tasks: %v", err)
+        scriptService.app.Logger().Error("failed to find active tasks", slog.Any("error", err))
         return
     }
-    log.Printf("Found %d active tasks", len(tasks))
-    // schedule them one by one
+    // schedule tasks one by one
     for _, task := range tasks {
         go scriptService.scheduleTask(task)
     }
@@ -295,7 +341,6 @@ func main() {
     }
 
     runCfg := &sshrun.RunConfig{
-        Debug: false,
         PrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
     }
     sshPool := sshrun.NewPool(runCfg)
@@ -305,19 +350,17 @@ func main() {
 
     // schedule system tasks
     app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-        // run NodeStatus task right away
-        go jobNodeStatus(app.Dao(), sshPool) 
-
-        // schedule NodeStatus task to run every minute
-        log.Printf("Scheduling system tasks")
+        // schedule NodeStatus task to run every 30 seconds
+        app.Logger().Info("scheduling system tasks")
         scriptService.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func ()  {
-           go jobNodeStatus(app.Dao(), sshPool) 
+           go jobNodeStatus(app.Dao(), sshPool, app.Logger()) 
         })
         return nil
     })
 
     // Schedule existing tasks
     app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+        app.Logger().Info("scheduling user tasks")
         onBeforeServeScheduleActiveTasks(app.Dao(), scriptService)
         return nil
     })

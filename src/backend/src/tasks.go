@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/pocketbase/daos"
@@ -9,16 +9,17 @@ import (
 )
 
 // simple task that checks all the nodes and marks them as online or offline
-func jobNodeStatus(dao *daos.Dao, sshPool *sshrun.Pool) {
+func jobNodeStatus(dao *daos.Dao, sshPool *sshrun.Pool, logger *slog.Logger) {
 	query := dao.RecordQuery(CollectionNodes).Limit(100)
 	records := []*models.Record{}
 	if err := query.All(&records); err != nil {
-		log.Printf("Failed to query nodes collection: %v", err)
+		logger.Error("failed to query nodes collection", slog.Any("error", err))
 		return
 	}
 
 	// run 'uptime' command in goroutine on each node and mark node as online or offline
 	for _, node := range records {
+		logger.Debug("cleck node status", nodeAttrs(node))
 		go func(node *models.Record) {
 			sshCfg := &sshrun.SSHConfig{
 				User: node.GetString("username"),
@@ -34,10 +35,14 @@ func jobNodeStatus(dao *daos.Dao, sshPool *sshrun.Pool) {
 				newStatus = NodeStatusOnline
 			}
 			if oldStatus != newStatus {
-				log.Printf("Change node '%s' status: %s -> %s", node.GetString("host"), oldStatus, newStatus)
+				logger.Info("change node status", nodeAttrs(node), slog.String("old", oldStatus), slog.String("new", newStatus))
 				node.Set("status", newStatus)
 				if err := dao.SaveRecord(node); err != nil {
-					log.Printf("Failed to save node status: %v", err)
+					logger.Error("failed to save node", slog.Any("error", err))
+				}
+				// close connection to the node if it is offline
+				if newStatus == NodeStatusOffline {
+					sshPool.Put(node.GetString("host"))
 				}
 			}
 		}(node)

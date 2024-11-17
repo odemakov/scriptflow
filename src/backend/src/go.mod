@@ -4,7 +4,7 @@ go 1.22.4
 
 require (
 	github.com/go-co-op/gocron v1.37.0
-	github.com/odemakov/sshrun v0.0.1
+	github.com/odemakov/sshrun v0.0.2
 	github.com/pocketbase/dbx v1.10.1
 	github.com/pocketbase/pocketbase v0.22.23
 )
@@ -84,3 +84,5 @@ require (
 	modernc.org/strutil v1.2.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 )
+
+replace github.com/odemakov/sshrun => ../../../../go/sshrun
