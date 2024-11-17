@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
@@ -29,14 +29,14 @@ const (
     NodeStatusOnline = "online"
     NodeStatusOffline = "offline"
     SchedulePeriod = 60 // max delay in seconds for tasks with @every schedule
-    LogsBasePath = "logs"
 )
 
 const (
-    RunStatusStarted     = "started"
-    RunStatusError       = "error"
-    RunStatusCompleted   = "completed"
-    RunStatusInterrupted = "interrupted"
+    RunStatusStarted       = "started"
+    RunStatusError         = "error"
+    RunStatusCompleted     = "completed"
+    RunStatusInterrupted   = "interrupted"
+    RunStatusInternalError = "internal_error"
 )
 
 type ScriptService struct {
@@ -110,17 +110,10 @@ func (s *ScriptService) runTask(taskId string, nodeId string) {
         return
     }
 
-    // Ensure log directory exists
-    logDir := runLogPath(s.app, task, run)
-    if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-        s.app.Logger().Error("failed to create log directory", slog.Any("error", err))
-        return
-    }
-
     // Create and open log file
-    logFile, err := s.createLogFile(logDir, taskLogName(run))
+    logFile, err := createLogFile(s.app, taskId)
     if err != nil {
-        s.app.Logger().Error("failed to open log file", slog.Any("error", err))
+        s.app.Logger().Error("Log file error", slog.Any("error", err))
         return
     }
     defer logFile.Close()
@@ -133,9 +126,13 @@ func (s *ScriptService) runTask(taskId string, nodeId string) {
 
     // Execute command and process output
     s.app.Logger().Info("execute task", taskAttrs(task), nodeAttrs(node))
-    exitCode, err := s.executeCommand(sshCfg, task.GetString("command"), logFile)
+    exitCode, err := s.executeCommand(sshCfg, task, run, logFile)
     if err != nil {
         switch e := err.(type) {
+        case *ScriptFlowError:
+            s.app.Logger().Error("ScriptFlow error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+            run.Set("status", RunStatusError)
+            run.Set("status", RunStatusInternalError)
         case *sshrun.SSHError:
             s.app.Logger().Error("SSH error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
             run.Set("connection_error", e.Msg)
@@ -190,7 +187,6 @@ func (s *ScriptService) findNodeAndTaskToRun(taskId string, nodeId string) (*mod
 
     // Skip task if the node is offline
     if node.GetString("status") != NodeStatusOnline {
-        s.app.Logger().Error("node is offline, skip", nodeAttrs(node))
         return nil, nil, NewNodeStatusNotOnlineError()
     }
 
@@ -202,19 +198,10 @@ func (s *ScriptService) findNodeAndTaskToRun(taskId string, nodeId string) (*mod
 
     // Skip task if it is not active
     if !task.GetBool("active") {
-        s.app.Logger().Error("task is not active, skip", taskAttrs(task))
         return nil, nil, NewTaskNotActiveError()
     }
 
     return task, node, nil
-}
-
-func (s *ScriptService) createLogFile(dir, filename string) (*os.File, error) {
-    filePath := filepath.Join(dir, filename)
-    if _, err := os.Stat(filePath); err == nil {
-        return os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-    }
-    return os.Create(filePath)
 }
 
 func (s *ScriptService) createRunRecord(task, node *models.Record) (*models.Record, error) {
@@ -235,14 +222,32 @@ func (s *ScriptService) createRunRecord(task, node *models.Record) (*models.Reco
     return run, nil
 }
 
-func (s *ScriptService) executeCommand(sshCfg *sshrun.SSHConfig, command string, logFile *os.File) (int, error) {
+func (s *ScriptService) executeCommand(sshCfg *sshrun.SSHConfig, task *models.Record, run *models.Record, logFile *os.File) (int, error) {
+    // add run mark to the log file
+    runMark := fmt.Sprintf(
+        "[%s] [scriptflow] run %s\n",
+        time.Now().Format(time.RFC3339),
+        run.Id,
+    )
+    if _, err := logFile.WriteString(runMark); err != nil {
+        return 0, &ScriptFlowError{"failed to write to log file"}
+    }
+    prependDatetime := task.GetBool("prepend_datetime")
     return s.pool.RunCombined(
         sshCfg,
-        command,
+        task.GetString("command"),
         func(out string) {
+            // prepend datetime, if needed
+            if prependDatetime {
+                out = fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), out)
+            }
             // Write output to log file
             if _, err := logFile.WriteString(out); err != nil {
                 s.app.Logger().Error("failed to write to log file", slog.Any("error", err))
+            }
+            // Flush output to ensure fsnotify detects the changes
+            if err := logFile.Sync(); err != nil {
+                s.app.Logger().Error("failed to sync log file", slog.Any("error", err))
             }
         },
     )
@@ -281,35 +286,6 @@ func onBeforeServeScheduleActiveTasks(dao *daos.Dao, scriptService *ScriptServic
     for _, task := range tasks {
         go scriptService.scheduleTask(task)
     }
-}
-
-// function to generate file path based on run record
-// data/logs/2024/01/05/{task.Id}
-func runLogPath(app *pocketbase.PocketBase, task *models.Record, run *models.Record) string {
-    created := run.GetCreated()
-    year, month, day := created.Time().Date()
-
-    // format: 2021/01/01
-    return filepath.Join(
-        app.DataDir(),
-        LogsBasePath,
-        strconv.Itoa(year),
-        fmt.Sprintf("%02d", month),
-        fmt.Sprintf("%02d", day),
-        task.Id,
-    )
-}
-
-// function to generate log file name based on task record
-// {year}-{month}-{day}_{hour}-{minute}-{second}-{task.Id}.log
-func taskLogName(run *models.Record) string {
-    created := run.GetCreated()
-    year, month, day := created.Time().Date()
-    hour, minute, second := created.Time().Clock()
-    return fmt.Sprintf(
-        "%d%02d%02d-%02d%02d%02d.%s.log",
-        year, month, day, hour, minute, second, run.Id,
-    )
 }
 
 func scheduleTasks(app *pocketbase.PocketBase) {
@@ -370,7 +346,11 @@ func scheduleTasks(app *pocketbase.PocketBase) {
 }
 
 func createLogsWebSockets(app *pocketbase.PocketBase) {
-
+    // Register WebSocket handler
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+        e.Router.GET("/api/scriptflow/task/:taskId/logs-ws", handleLogsWebSocket(app), apis.RequireAdminOrRecordAuth("users"))
+        return nil
+    })
 }
 
 func main() {

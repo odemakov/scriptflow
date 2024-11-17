@@ -18,3 +18,8 @@ func NewNodeStatusNotOnlineError() error {
 func NewTaskNotActiveError() error {
 	return &ScriptFlowError{"task is not active"}
 }
+
+// failed create log file directory error
+func NewFailedCreateLogFileDirectoryError() error {
+	return &ScriptFlowError{"failed to create log file directory"}
+}
