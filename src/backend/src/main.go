@@ -70,38 +70,27 @@ func (s *ScriptService) scheduleTask(task *models.Record) {
     // schedule new task if active
     if task.GetBool("active") {
         // find task nodes
-        nodes, err := findNodes(s.app.Dao(), task)
+        node, err := findNode(s.app.Dao(), task)
         if err != nil {
-            s.app.Logger().Error("failed to find task", taskAttrs(task), slog.Any("error", err))
+            s.app.Logger().Error("failed to find node", taskAttrs(task))
             return
         }
 
-        for _, node := range nodes {
-            // if task.schedule begins with @
-            if strings.HasPrefix(task.GetString("schedule"), "@") {
-                // for @every 1m schedule task would run every minute from now
-                // we add random delay here to avoid running all tasks at the same time
-                time.Sleep(time.Duration(time.Second * time.Duration(rand.Intn(SchedulePeriod))))
-            }
+        // if task.schedule begins with @
+        if strings.HasPrefix(task.GetString("schedule"), "@") {
+            // for @every 1m schedule task would run every minute from now
+            // we add random delay here to avoid running all tasks at the same time
+            time.Sleep(time.Duration(time.Second * time.Duration(rand.Intn(SchedulePeriod))))
+        }
 
-            // log scheduled task with task and node details
-            s.app.Logger().Info("schedule task", nodeAttrs(node), taskAttrs(task))
-            if task.GetBool("singleton") {
-                _, err := s.scheduler.Tag(task.Id).
-                    SingletonMode().
-                    Cron(task.GetString("schedule")).
-                    Do(s.runTask, task.Id, node.Id)
-                if err != nil {
-                    s.app.Logger().Error("failed to schedule task", taskAttrs(task), nodeAttrs(node), slog.Any("error", err))
-                }
-            } else {
-                _, err := s.scheduler.Tag(task.Id).
-                    Cron(task.GetString("schedule")).
-                    Do(s.runTask, task.Id, node.Id)
-                if err != nil {
-                    s.app.Logger().Error("failed to schedule task", taskAttrs(task), nodeAttrs(node), slog.Any("error", err))
-                }
-            }
+        // log scheduled task with task and node details
+        s.app.Logger().Info("schedule task", nodeAttrs(node), taskAttrs(task))
+        _, err = s.scheduler.Tag(task.Id).
+            SingletonMode().
+            Cron(task.GetString("schedule")).
+            Do(s.runTask, task.Id, node.Id)
+        if err != nil {
+            s.app.Logger().Error("failed to schedule task", taskAttrs(task), nodeAttrs(node), slog.Any("error", err))
         }
     }
 }
@@ -262,23 +251,23 @@ func (s *ScriptService) executeCommand(sshCfg *sshrun.SSHConfig, command string,
 func findActiveTasks(dao *daos.Dao) ([]*models.Record, error) {
     query := dao.RecordQuery(CollectionTasks).
         AndWhere(dbx.HashExp{"active": true}).
-        Limit(100)
+        Limit(1000)
 
     records := []*models.Record{}
     if err := query.All(&records); err != nil {
         return nil, err
     }
+
     return records, nil
 }
 
-// find nodes for task
-func findNodes(dao *daos.Dao, task *models.Record) ([]*models.Record, error) {
-    ids := task.GetStringSlice("nodes")
-    records, err := dao.FindRecordsByIds(CollectionNodes, ids)
+// find node for task
+func findNode(dao *daos.Dao, task *models.Record) (*models.Record, error) {
+    node, err := dao.FindRecordById(CollectionNodes, task.GetString("node"))
     if err != nil {
         return nil, err
     }
-    return records, nil
+    return node, nil
 }
 
 func onBeforeServeScheduleActiveTasks(dao *daos.Dao, scriptService *ScriptService) {
@@ -323,17 +312,7 @@ func taskLogName(run *models.Record) string {
     )
 }
 
-func main() {
-    app := pocketbase.New()
-
-    // loosely check if it was executed using "go run"
-    isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
-    migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-        // enable auto creation of migration files when making collection changes in the Admin UI
-        // (the isGoRun check is to enable it only during development)
-        Automigrate: isGoRun,
-    })
-
+func scheduleTasks(app *pocketbase.PocketBase) {
     // get home directory of current user
     homeDir, err := os.UserHomeDir()
     if err != nil {
@@ -388,6 +367,26 @@ func main() {
         }
         return nil
     })
+}
+
+func createLogsWebSockets(app *pocketbase.PocketBase) {
+
+}
+
+func main() {
+    app := pocketbase.New()
+
+    // loosely check if it was executed using "go run"
+    isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
+    migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+        // enable auto creation of migration files when making collection changes in the Admin UI
+        // (the isGoRun check is to enable it only during development)
+        Automigrate: isGoRun,
+    })
+
+    scheduleTasks(app)
+
+    createLogsWebSockets(app)
 
     if err := app.Start(); err != nil {
         log.Fatal(err)
