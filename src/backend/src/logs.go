@@ -59,7 +59,7 @@ func handleTaskLogWebSocket(app *pocketbase.PocketBase) echo.HandlerFunc {
 		}()
 
 		// Locate the log file
-		logFilePath := taskLogFilePath(app, taskId)
+		logFilePath := taskTodayLogFilePath(app, taskId)
 		app.Logger().Debug("TaskLogWebSocket handler", slog.String("file", logFilePath))
 		if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
 			conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
@@ -102,7 +102,7 @@ func handleRunLog(app *pocketbase.PocketBase) echo.HandlerFunc {
 		logFilePath := taskLogFilePathDate(
 			app,
 			task.GetString("id"),
-			task.GetTime("run_created"),
+			run.GetDateTime("created").Time(),
 		)
 		logs, err := extractLogsForRun(logFilePath, runId)
 		if err != nil {
@@ -110,8 +110,10 @@ func handleRunLog(app *pocketbase.PocketBase) echo.HandlerFunc {
 		}
 
 		// read log file
-		app.Logger().Debug("RunLog handler", slog.String("file", logFilePath))
-		return c.String(http.StatusOK, strings.Join(logs, "\n"))
+		// return {data: logs: []string}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"logs": logs,
+		})
 	}
 }
 
@@ -121,7 +123,7 @@ func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 
 	file, err := os.Open(logFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open log file")
+		return nil, fmt.Errorf("failed to open log file %v: %v", logFilePath, err)
 	}
 	defer file.Close()
 
@@ -310,26 +312,18 @@ func readLastLines(file *os.File, n int) ([]string, error) {
 	return lines, nil
 }
 
+// {year}{month}{day}.log
 func taskLogFileName(date time.Time) string {
-	year, month, day := date.Date()
+	year, month, day := date.UTC().Date()
 	return fmt.Sprintf(
 		"%d%02d%02d.log",
 		year, month, day,
 	)
 }
 
-// pb_data/logs/{year}{month}{day}.log
-func taskLogFilePath(app *pocketbase.PocketBase, taskId string) string {
-	fileName := taskLogFileName(time.Now())
-	return filepath.Join(
-		app.DataDir(),
-		LogsBasePath,
-		taskId,
-		fileName,
-	)
-}
+// pb_data/logs/{taskLogFileName}.log
 func taskLogFilePathDate(app *pocketbase.PocketBase, taskId string, dateTime time.Time) string {
-	fileName := taskLogFileName(dateTime)
+	fileName := taskLogFileName(dateTime.UTC())
 	return filepath.Join(
 		app.DataDir(),
 		LogsBasePath,
@@ -338,8 +332,13 @@ func taskLogFilePathDate(app *pocketbase.PocketBase, taskId string, dateTime tim
 	)
 }
 
+// Helper function to get today's log file path
+func taskTodayLogFilePath(app *pocketbase.PocketBase, taskId string) string {
+    return taskLogFilePathDate(app, taskId, time.Now())
+}
+
 func createLogFile(app *pocketbase.PocketBase, taskId string) (*os.File, error) {
-	filePath := taskLogFilePath(app, taskId)
+	filePath := taskTodayLogFilePath(app, taskId)
 	logDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 		return nil, NewFailedCreateLogFileDirectoryError()

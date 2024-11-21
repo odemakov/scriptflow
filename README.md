@@ -33,3 +33,4 @@ Task.schedule field parsed by [robfig/cron/v3](https://pkg.go.dev/github.com/rob
 `cd scc/backend`
 
 `go run main.go --dir ../data/ serve`
+run main.go error.go tasks.go logs.go --dir ../data/ serve
