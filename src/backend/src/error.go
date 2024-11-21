@@ -4,6 +4,7 @@ package main
 type ScriptFlowError struct {
 	msg string
 }
+
 // implement error interface
 func (s *ScriptFlowError) Error() string {
 	return s.msg
