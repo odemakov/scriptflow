@@ -17,6 +17,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 
 	//"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
@@ -342,10 +343,10 @@ func createLogsWebSockets(app *pocketbase.PocketBase) {
 	app.Logger().Info("websocket")
 	// Register WebSocket handler
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		//e.Router.GET("/api/scriptflow/task/:taskId/logs-ws", handleLogsWebSocket(app), apis.RequireAdminOrRecordAuth("users"))
+		// WebSocket doesn't support HTTP headers(Authorizations), we will use query params instead
 		e.Router.GET("/api/scriptflow/task/:taskId/log-ws", handleTaskLogWebSocket(app))
-		e.Router.GET("/api/scriptflow/run/:runId/log", handleRunLog(app))
-		e.Router.GET("/api/scriptflow/stats", handleWebSocketStats())
+		e.Router.GET("/api/scriptflow/run/:runId/log", handleRunLog(app), apis.RequireAdminOrRecordAuth("users"))
+		e.Router.GET("/api/scriptflow/stats", handleWebSocketStats(), apis.RequireAdminOrRecordAuth("users"))
 		return nil
 	})
 }
