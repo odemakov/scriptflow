@@ -209,7 +209,7 @@ const toggleTaskActive = async (taskId: string) => {
 
           <td>
             <template v-if="taskLastRun(task.id)">
-              <Identifier @click="gotoRun(task.id)" :id="taskLastRun(task.id)?.id" />
+              <Identifier @click="gotoRun(taskLastRun(task.id).id)" :id="taskLastRun(task.id)?.id" />
             </template>
           </td>
 

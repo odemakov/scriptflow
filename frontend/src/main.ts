@@ -13,7 +13,6 @@ app.use(createPinia());
 
 const useAuth = useAuthStore();
 router.beforeEach((to) => {
-  //console.log("router.beforeEach", to, from);
   if (to.meta.requireAuth && !useAuth.isAuthenticated) {
     router.push({ name: "home" });
     return false;
