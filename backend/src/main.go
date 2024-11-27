@@ -103,6 +103,8 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	initScheduler(sf)
 	sf.app.Logger().Info("init ScriptFlow API")
 	initApi(sf)
+
+	sf.MountFs()
 }
 
 func main() {
