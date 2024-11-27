@@ -16,8 +16,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
-	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 const (
@@ -29,93 +29,91 @@ var (
 	openWebSocketsMutex sync.Mutex
 )
 
-func handleTaskLogWebSocket(app *pocketbase.PocketBase) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		taskId := c.PathParam("taskId")
+func(sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
+	taskId := e.Request.PathValue("taskId")
 
-		// Upgrade HTTP connection to WebSocket
-		upgrader := websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true // Adjust as needed for security
-			},
-		}
-
-		conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to upgrade WebSocket")
-		}
-		defer conn.Close()
-
-		// Increment the counter
-		openWebSocketsMutex.Lock()
-		openWebSockets++
-		openWebSocketsMutex.Unlock()
-
-		defer func() {
-			// Decrement the counter
-			openWebSocketsMutex.Lock()
-			openWebSockets--
-			openWebSocketsMutex.Unlock()
-		}()
-
-		// Locate the log file
-		logFilePath := taskTodayLogFilePath(app, taskId)
-		app.Logger().Debug("TaskLogWebSocket handler", slog.String("file", logFilePath))
-		if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
-			conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
-			return nil
-		}
-
-		if err := sendLastLines(conn, logFilePath, 100); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to send last lines")
-		}
-		if err := watchFileChanges(conn, logFilePath, app); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to watch file changes")
-		}
-		return nil
+	// Upgrade HTTP connection to WebSocket
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Adjust as needed for security
+		},
 	}
+
+	conn, err := upgrader.Upgrade(e.Response, e.Request, nil)
+	if err != nil {
+		return e.InternalServerError(err.Error(), "Failed to upgrade WebSocket")
+	}
+	defer conn.Close()
+
+	// Increment the counter
+	openWebSocketsMutex.Lock()
+	openWebSockets++
+	openWebSocketsMutex.Unlock()
+
+	defer func() {
+		// Decrement the counter
+		openWebSocketsMutex.Lock()
+		openWebSockets--
+		openWebSocketsMutex.Unlock()
+	}()
+
+	// Locate the log file
+	logFilePath := taskTodayLogFilePath(sf.app, taskId)
+	sf.app.Logger().Debug("TaskLogWebSocket handler", slog.String("file", logFilePath))
+	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+		conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
+		return e.Next()
+	}
+
+	if err := sendLastLines(conn, logFilePath, 100); err != nil {
+		return e.InternalServerError(err.Error(), "Failed to send last lines")
+	}
+	if err := watchFileChanges(conn, logFilePath, sf.app); err != nil {
+		return e.InternalServerError(err.Error(), "Failed to watch file changes")
+	}
+	return e.Next()
 }
 
 // function to retrieve run log by runId
-// it extract task_id by makeing join quesry to databases
-// finds log file by run created date and task id
-// parse log file and return run log content
-// one log file for task per day
-// run logs separated by '[Datetime] ########## Run {run.id} ##########'
-func handleRunLog(app *pocketbase.PocketBase) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		runId := c.PathParam("runId")
+func(sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
+	runId := e.Request.PathValue("runId")
 
-		// select run by run id
-		run, err := app.Dao().FindRecordById(CollectionRuns, runId)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusNotFound, "Run not found")
-		}
-
-		// select task by run id
-		task, err := app.Dao().FindRecordById(CollectionTasks, run.GetString("task"))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusNotFound, "Task not found")
-		}
-
-		// get log file path
-		logFilePath := taskLogFilePathDate(
-			app,
-			task.GetString("id"),
-			run.GetDateTime("created").Time(),
-		)
-		logs, err := extractLogsForRun(logFilePath, runId)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-
-		// read log file
-		// return {data: logs: []string}
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"logs": logs,
-		})
+	// select run by run id
+	run, err := sf.app.FindRecordById(CollectionRuns, runId)
+	if err != nil {
+		return e.NotFoundError("Run not found", slog.String("runId", runId))
 	}
+
+	// select task by run id
+	task, err := sf.app.FindRecordById(CollectionTasks, run.GetString("task"))
+	if err != nil {
+		return e.NotFoundError("Task not found", slog.String("taskId", run.GetString("task")))
+	}
+
+	// get log file path
+	logFilePath := taskLogFilePathDate(
+		sf.app,
+		task.GetString("id"),
+		run.GetDateTime("created").Time(),
+	)
+	logs, err := extractLogsForRun(logFilePath, runId)
+	if err != nil {
+		return e.InternalServerError(err.Error(), slog.String("runId", runId))
+	}
+
+	// return {data: logs: []string}
+	return e.JSON(http.StatusOK, map[string]interface{}{
+		"logs": logs,
+	})
 }
+
+func(sf *ScriptFlow) ApiScriptFlowStats(e *core.RequestEvent) error {
+	openWebSocketsMutex.Lock()
+	count := openWebSockets
+	openWebSocketsMutex.Unlock()
+	return e.JSON(http.StatusOK, map[string]int{"WebSocketsCount": count})
+}
+
 
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 	//delimiterRegex := regexp.MustCompile(`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}\] \[scriptflow\] run ([a-z0-9]{15})`)
@@ -166,16 +164,6 @@ func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 		}
 	}
 	return logs, nil
-}
-
-func handleWebSocketStats() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		openWebSocketsMutex.Lock()
-		count := openWebSockets
-		openWebSocketsMutex.Unlock()
-
-		return c.JSON(http.StatusOK, map[string]int{"openWebSockets": count})
-	}
 }
 
 // Read and send the last N lines of the file
