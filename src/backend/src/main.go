@@ -52,46 +52,33 @@ func initScheduler(sf *ScriptFlow) {
 		}
 		return e.Next()
 	})
+
+	sf.app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
+		// Stop scheduler on app stop
+		// In case of long running tasks it will wait for them to finish
+		// Not sure I need this
+		sf.app.Logger().Info("force stopping Scheduler")
+		sf.scheduler.Stop()
+
+		// mark all running tasks as interrupted, if any
+		sf.app.Logger().Info("marking all running tasks as interrupted")
+		sf.MarkAllRunningTasksAsInterrupted()
+
+		// Close all ssh connections thus terminate all running tasks, if any
+		sf.app.Logger().Info("stoping SSH Pool")
+		sf.sshPool.ClosePool()
+
+		return e.Next()
+	})
 }
 
 func initApi(sf *ScriptFlow) {
-	sf.app.Logger().Info("ScriptFlow API")
 	// Register WebSocket handler
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
 		e.Router.GET("/api/scriptflow/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
 		e.Router.GET("/api/scriptflow/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/stats", sf.ApiScriptFlowStats).Bind(apis.RequireAuth())
-
-        // var upgrader = websocket.Upgrader{
-        //     CheckOrigin: func(r *http.Request) bool {
-        //         return true
-        //     },
-        // }
-
-        // // register the websocket route
-        // e.Router.GET("/api/scriptflow/ws", func(e *core.RequestEvent) error {
-        //     conn, err := upgrader.Upgrade(e.Response, e.Request, nil)
-        //     if err != nil {
-        //         http.Error(e.Response, "Could not open websocket connection", http.StatusBadRequest)
-        //         return err
-        //     }
-        //     defer conn.Close()
-
-        //     for {
-        //         // Read message from browser
-        //         _, msg, err := conn.ReadMessage()
-        //         if err != nil {
-        //             break
-        //         }
-
-        //         // Write message back to browser
-        //         if err = conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-        //             break
-        //         }
-        //     }
-		// 	return e.Next()
-        // })
 		return e.Next()
 	})
 }
@@ -101,7 +88,7 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	// get home directory of current user
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf("Failed to get home directory: %v", err)
+		log.Fatalf("failed to get home directory: %v", err)
 	}
 
 	runCfg := &sshrun.RunConfig{
@@ -112,7 +99,9 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	sf := NewScriptFlow(app, sshPool)
 	sf.Start()
 
+	sf.app.Logger().Info("init ScriptFlow Scheduler")
 	initScheduler(sf)
+	sf.app.Logger().Info("init ScriptFlow API")
 	initApi(sf)
 }
 

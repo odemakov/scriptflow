@@ -27,6 +27,27 @@ func (sf *ScriptFlow) Start() {
 	sf.scheduler.StartAsync()
 }
 
+func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted() {
+	// find all active runs
+	runs, err := sf.app.FindAllRecords(
+		CollectionRuns,
+		dbx.HashExp{"status": RunStatusStarted},
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to find started runs", slog.Any("error", err))
+		return
+	}
+
+	// mark them as interrupted
+	for _, run := range runs {
+		run.Set("status", RunStatusInterrupted)
+		run.Set("error", "scriptflow interrupted")
+		if err := sf.app.Save(run); err != nil {
+			sf.app.Logger().Error("failed to save run", slog.Any("error", err))
+		}
+	}
+}
+
 func (sf *ScriptFlow)scheduleActiveTasks() {
 	// find all active tasks
 	tasks, err := sf.app.FindAllRecords(
@@ -121,7 +142,6 @@ func (sf *ScriptFlow) runTask(taskId string, nodeId string) {
 		switch e := err.(type) {
 		case *ScriptFlowError:
 			sf.app.Logger().Error("ScriptFlow error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
-			run.Set("status", RunStatusError)
 			run.Set("status", RunStatusInternalError)
 		case *sshrun.SSHError:
 			sf.app.Logger().Error("SSH error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
@@ -191,7 +211,12 @@ func (sf *ScriptFlow) createRunRecord(task, node *core.Record) (*core.Record, er
 		return nil, fmt.Errorf("failed to save run record: %w", err)
 	}
 
-	return run, nil
+	// fetch created run record, otehrwise it won't update autoupdated fields
+	returnRun, err := sf.app.FindRecordById(CollectionRuns, run.Id)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find creted run: %w", err)
+	}
+	return returnRun, nil
 }
 
 func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record, run *core.Record, logFile *os.File) (int, error) {
