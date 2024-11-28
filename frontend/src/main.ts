@@ -5,7 +5,7 @@ import "./style.css";
 import router from "./router";
 import App from "./App.vue";
 
-import { useAuthStore } from "@/stores/pocketbase";
+import { useAuthStore } from "@/stores/AuthStore";
 
 const app = createApp(App);
 

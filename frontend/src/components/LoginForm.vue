@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { useAuthStore } from '../stores/pocketbase';
+import { useAuthStore } from '../stores/AuthStore';
 import Button from './Button.vue';
 
 const auth = useAuthStore()

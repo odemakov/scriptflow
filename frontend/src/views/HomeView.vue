@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/stores/pocketbase'
+import { useAuthStore } from '@/stores/AuthStore'
 import LoginForm from '@/components/LoginForm.vue'
 import SelectProject from '@/components/SelectProject.vue'
 import PageTitle from '@/components/PageTitle.vue'

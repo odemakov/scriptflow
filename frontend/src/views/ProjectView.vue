@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { RecordSubscription } from "pocketbase";
 
-import { getPocketBaseInstance } from "@/stores/pocketbase";
+import { getPocketBaseInstance } from "@/stores/AuthStore";
 import { useToastStore } from '@/stores/ToastStore';
 import { useTaskStore } from '@/stores/TaskStore';
 import { useRunStore } from '@/stores/RunStore';

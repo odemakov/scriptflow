@@ -5,7 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 
 import { useToastStore } from '@/stores/ToastStore';
-import { useAuthStore } from '@/stores/pocketbase'
+import { useAuthStore } from '@/stores/AuthStore';
 
 const props = defineProps<{
   run: IRun,

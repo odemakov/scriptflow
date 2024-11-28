@@ -1,7 +1,7 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 
-import { getPocketBaseInstance } from "./pocketbase";
+import { getPocketBaseInstance } from "./AuthStore";
 
 export const useProjectStore = defineStore("projects", () => {
   const pb = getPocketBaseInstance();
