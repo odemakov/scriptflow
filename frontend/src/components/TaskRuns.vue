@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import Command from './Command.vue';
 import { useRunStore } from '@/stores/RunStore';
 import { useToastStore } from '@/stores/ToastStore';
-import Identifier from './Identifier.vue';
+import IdentifierUrl from './IdentifierUrl.vue';
 import RunStatus from './RunStatus.vue';
 import RunTimeAgo from './RunTimeAgo.vue';
 import RunTimeDiff from './RunTimeDiff.vue';
@@ -59,7 +59,7 @@ watch(() => props.task, async () => {
       <tbody>
         <tr v-for="run in lastRuns" :key="run.id" class="">
           <td>
-            <Identifier @click="gotoRun(run)" :id="run.id" />
+            <IdentifierUrl @click="gotoRun(run)" :id="run.id" />
           </td>
           <td>
             <Command :command="run.command" />

@@ -14,6 +14,7 @@ const useRuns = useRunStore()
 const route = useRoute()
 const router = useRouter()
 const runId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
 
 const run = computed(() => useRuns.getRun)
 let back = emptyBack
@@ -32,11 +33,12 @@ onMounted(async () => {
 watch(run, (newRun) => {
   if (newRun.id) {
     back = {
-      to: () => router.push({ name: 'task', params: { id: newRun.expand?.task.id } }),
+      to: () => router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: newRun.expand?.task.slug } }),
       label: 'back to task'
     } as IBack
   }
 }, { immediate: true })
+
 </script>
 
 <template>

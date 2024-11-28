@@ -19,45 +19,50 @@ const router = createRouter({
       },
     },
     {
-      path: "/project/:id",
-      name: "project",
-      component: ProjectView,
-      meta: {
-        title: "Project",
-        requireAuth: true,
-      },
-    },
-    {
-      path: "/task/:id",
+      path: "/app/",
       children: [
         {
-          name: "task",
-          path: "history",
-          component: TaskView,
-          meta: {
-            title: "Task",
-            requireAuth: true,
-          },
-        },
-        {
-          name: "task-log",
-          path: "log",
-          component: TaskLogView,
-          meta: {
-            title: "Task",
-            requireAuth: true,
-          },
+          path: ":projectSlug",
+          children: [
+            {
+              path: "",
+              name: "project",
+              component: ProjectView,
+              meta: {
+                title: "Project",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "task",
+              path: ":taskSlug/history",
+              component: TaskView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "task-log",
+              path: ":taskSlug/log",
+              component: TaskLogView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              path: "run/:id",
+              name: "run",
+              component: RunView,
+              meta: {
+                title: "Run",
+                requireAuth: true,
+              },
+            },
+          ],
         },
       ],
-    },
-    {
-      path: "/run/:id",
-      name: "run",
-      component: RunView,
-      meta: {
-        title: "Run",
-        requireAuth: true,
-      },
     },
     {
       path: "/:pathMatch(.*)*",

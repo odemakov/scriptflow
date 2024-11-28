@@ -4,7 +4,7 @@ defineProps<{
 }>()
 </script>
 <template>
-  <span class="bg-gray-200 text-gray-700 font-mono rounded-md py-1 px-2 my-1 text-xs">
+  <span class="bg-gray-300 text-gray-900 font-mono rounded-md py-1 px-2 my-1 text-xs hover:cursor-pointer">
     {{ id }}
   </span>
 </template>

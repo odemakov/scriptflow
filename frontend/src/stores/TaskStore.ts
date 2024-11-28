@@ -13,20 +13,20 @@ export const useTaskStore = defineStore("tasks", () => {
   const getTask = computed(() => task.value);
 
   // methods
-  async function fetchTasks(projectId: string) {
+  async function fetchTasks(projectSlug: string) {
     const records = await pb
       .collection(CCollectionName.tasks)
       .getList<ITask>(1, 100, {
         expand: "node,project",
         sort: "-created",
-        filter: pb.filter("project = {:projectId}", { projectId: projectId }),
+        filter: pb.filter("project.slug = {:slug}", { slug: projectSlug }),
       });
     tasks.value = records.items;
   }
-  async function fetchTask(taskId: string) {
+  async function fetchTask(taskSlug: string) {
     const record = await pb
       .collection(CCollectionName.tasks)
-      .getOne<ITask>(taskId, {
+      .getFirstListItem<IProject>(`slug="${taskSlug}"`, {
         expand: "node,project",
       });
     task.value = record;

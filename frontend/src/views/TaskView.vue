@@ -13,14 +13,15 @@ const useToasts = useToastStore()
 const useTasks = useTaskStore()
 const router = useRouter()
 const route = useRoute()
-const taskId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+const taskSlug = Array.isArray(route.params.taskSlug) ? route.params.taskSlug[0] : route.params.taskSlug
+const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
 
 const task = computed(() => useTasks.getTask)
 let back = emptyBack
 
 onMounted(async () => {
   try {
-    await useTasks.fetchTask(taskId)
+    await useTasks.fetchTask(taskSlug)
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
@@ -30,13 +31,13 @@ onMounted(async () => {
 })
 
 const gotoTaskLog = () => {
-  router.push({ name: 'task-log', params: { id: taskId } })
+  router.push({ name: 'task-log', params: { projectSlug: projectSlug, taskSlug: taskSlug } })
 }
 
 watch(task, (newTask) => {
   if (newTask.id) {
     back = {
-      to: () => router.push({ name: 'project', params: { id: newTask.expand?.project.id } }),
+      to: () => router.push({ name: 'project', params: { projectSlug: projectSlug } }),
       label: 'back to project'
     } as IBack
   }

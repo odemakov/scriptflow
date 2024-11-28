@@ -15,6 +15,7 @@ import RunTimeAgo from '@/components/RunTimeAgo.vue';
 import PageTitle from '@/components/PageTitle.vue';
 import { useProjectStore } from '@/stores/ProjectStore';
 import { IBack } from '@/types';
+import IdentifierUrl from '@/components/IdentifierUrl.vue';
 
 const pb = getPocketBaseInstance()
 const router = useRouter()
@@ -24,7 +25,7 @@ const useProjects = useProjectStore()
 const useTasks = useTaskStore()
 const useRuns = useRunStore()
 
-const projectId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
 const back = {
   to: () => router.push({ name: 'home' }),
   label: 'back to projects'
@@ -43,7 +44,7 @@ const taskLastRun = (taskId: string) => {
 
 const fetchProject = async () => {
   try {
-    await useProjects.fetchProject(projectId)
+    await useProjects.fetchProject(projectSlug)
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
@@ -54,7 +55,7 @@ const fetchProject = async () => {
 
 const fetchTasksAndSubsribe = async () => {
   try {
-    await useTasks.fetchTasks(projectId)
+    await useTasks.fetchTasks(projectSlug)
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
@@ -136,12 +137,12 @@ onUnmounted(() => {
   pb.collection(CCollectionName.tasks).unsubscribe()
 })
 
-const gotoTask = (taskId: string) => {
-  router.push({ name: 'task', params: { id: taskId } })
+const gotoTask = (taskSlug: string) => {
+  router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } })
 }
 
 const gotoRun = (runId: string) => {
-  router.push({ name: 'run', params: { id: runId } })
+  router.push({ name: 'run', params: { projectSlug: projectSlug, id: runId } })
 }
 
 
@@ -173,6 +174,7 @@ const toggleTaskActive = async (taskId: string) => {
         <tr class="">
           <th class=""></th>
           <th class="">id</th>
+          <th class="">slug</th>
           <th class="">name</th>
           <th class="">schedule</th>
           <th class="">command</th>
@@ -192,7 +194,11 @@ const toggleTaskActive = async (taskId: string) => {
           </td>
 
           <td>
-            <Identifier @click="gotoTask(task.id)" :id="task.id" />
+            <Identifier :id="task.id" />
+          </td>
+
+          <td>
+            <IdentifierUrl @click="gotoTask(task.slug)" :id="task.slug" />
           </td>
 
           <td>
