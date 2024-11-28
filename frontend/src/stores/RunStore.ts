@@ -21,6 +21,7 @@ export const useRunStore = defineStore("runs", () => {
         requestKey: taskId,
         filter: pb.filter("task.id={:taskId}", { taskId: taskId }),
         sort: "-created",
+        expand: "task",
       });
     lastRuns.value[taskId] = records.items;
   }

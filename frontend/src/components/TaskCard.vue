@@ -1,10 +1,18 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
 
 import Command from './Command.vue';
 import Identifier from './Identifier.vue';
+import IdentifierUrl from './IdentifierUrl.vue';
+
 const props = defineProps<{
   task: ITask,
 }>()
+const router = useRouter()
+
+const gotoProject = () => {
+  router.push({ name: 'project', params: { projectSlug: props.task?.expand?.project?.slug } })
+}
 
 </script>
 
@@ -16,14 +24,16 @@ const props = defineProps<{
       <table class="table table-xs">
         <tbody>
           <tr>
+            <td>Project</td>
+            <td>
+              <IdentifierUrl :id="props.task.expand?.project?.name" @click="gotoProject()" />
+            </td>
+          </tr>
+          <tr>
             <td>Id</td>
             <td>
               <Identifier :id="props.task.id" />
             </td>
-          </tr>
-          <tr>
-            <td>Project</td>
-            <td>{{ props.task.expand?.project?.name }}</td>
           </tr>
           <tr>
             <td>Node</td>

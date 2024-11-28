@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import "@xterm/xterm/css/xterm.css";
-import { watch, ref, onMounted, onUnmounted } from 'vue';
+import { watch, ref, onMounted, onUnmounted, computed } from 'vue';
+import { useRoute } from 'vue-router'
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { AttachAddon } from '@xterm/addon-attach';
 
 import { useToastStore } from '@/stores/ToastStore';
+import { useProjectStore } from '@/stores/ProjectStore';
 
 const props = defineProps<{
   task: ITask,
 }>()
 
+const route = useRoute()
 const useToasts = useToastStore()
+const useProjects = useProjectStore()
+
+const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
+const project = computed(() => useProjects.getProject)
+
 const terminalRef = ref(null);
 const term = new Terminal(CTerminalDefaults)
 
@@ -23,7 +31,7 @@ let webSocket: WebSocket;
 
 watch(() => props.task, async () => {
   try {
-    const ws = `${import.meta.env.VITE_PB_BACKEND_URL_WS}/api/scriptflow/task/${props.task.id}/log-ws`;
+    const ws = `${import.meta.env.VITE_PB_BACKEND_URL_WS}/api/scriptflow/${project.value.id}/task/${props.task.id}/log-ws`;
     webSocket = new WebSocket(ws);
     // Handle WebSocket events
     webSocket.onerror = () => {
@@ -38,6 +46,8 @@ watch(() => props.task, async () => {
 })
 
 onMounted(() => {
+  useProjects.fetchProject(projectSlug)
+
   if (terminalRef.value) {
     // Open Terminal
     term.open(terminalRef.value);

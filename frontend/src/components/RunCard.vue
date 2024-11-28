@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router';
 
 import Command from './Command.vue';
 import Identifier from './Identifier.vue';
+import IdentifierUrl from './IdentifierUrl.vue';
 import RunStatus from './RunStatus.vue';
 const props = defineProps<{
   run: IRun,
@@ -10,7 +11,7 @@ const props = defineProps<{
 const router = useRouter()
 
 const gotoTask = () => {
-  router.push({ name: 'task', params: { id: props.run?.expand?.task?.id } })
+  router.push({ name: 'task', params: { projectSlug: props.run?.expand?.project?.slug, taskSlug: props.run?.expand?.task?.slug } })
 }
 
 </script>
@@ -25,7 +26,7 @@ const gotoTask = () => {
           <tr>
             <td>Task</td>
             <td>
-              <Identifier :id="props.run?.expand?.task?.id" @click="gotoTask()" />
+              <IdentifierUrl :id="props.run?.expand?.task?.id" @click="gotoTask()" />
             </td>
           </tr>
           <tr>

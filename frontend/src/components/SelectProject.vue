@@ -4,6 +4,7 @@ import router from '@/router';
 
 import { useProjectStore } from '@/stores/ProjectStore';
 import Identifier from './Identifier.vue';
+import IdentifierUrl from './IdentifierUrl.vue';
 
 const useProject = useProjectStore()
 const projects = computed(() => useProject.getProjects)
@@ -18,13 +19,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto p-8 min-w-[400px] max-w-[400px] rounded shadow-lg">
+  <div class="mx-auto p-8 rounded">
     <table class="table mx-auto">
       <thead>
         <tr>
           <th>id</th>
           <th>slug</th>
           <th>name</th>
+          <th>config</th>
         </tr>
       </thead>
       <tbody>
@@ -33,9 +35,10 @@ onMounted(async () => {
             <Identifier :id="project.id" />
           </td>
           <td>
-            <Identifier :id="project.slug" @click="gotoTasks(project.slug)" />
+            <IdentifierUrl :id="project.slug" @click="gotoTasks(project.slug)" />
           </td>
           <td>{{ project.name }}</td>
+          <td>{{ project.config }}</td>
         </tr>
       </tbody>
     </table>

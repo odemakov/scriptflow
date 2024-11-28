@@ -9,13 +9,13 @@ import { useTaskStore } from '@/stores/TaskStore';
 import { useRunStore } from '@/stores/RunStore';
 
 import Identifier from '@/components/Identifier.vue';
+import IdentifierUrl from '@/components/IdentifierUrl.vue';
 import Command from '@/components/Command.vue';
 import RunStatus from '@/components/RunStatus.vue';
 import RunTimeAgo from '@/components/RunTimeAgo.vue';
 import PageTitle from '@/components/PageTitle.vue';
 import { useProjectStore } from '@/stores/ProjectStore';
 import { IBack } from '@/types';
-import IdentifierUrl from '@/components/IdentifierUrl.vue';
 
 const pb = getPocketBaseInstance()
 const router = useRouter()
@@ -141,8 +141,12 @@ const gotoTask = (taskSlug: string) => {
   router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } })
 }
 
-const gotoRun = (runId: string) => {
-  router.push({ name: 'run', params: { projectSlug: projectSlug, id: runId } })
+const gotoRun = (run: IRun) => {
+  if (run.status === CRunStatus.started) {
+    router.push({ name: 'task-log', params: { projectSlug: projectSlug, taskSlug: run.expand.task.slug } })
+  } else {
+    router.push({ name: 'run', params: { id: run.id } })
+  }
 }
 
 
@@ -215,7 +219,7 @@ const toggleTaskActive = async (taskId: string) => {
 
           <td>
             <template v-if="taskLastRun(task.id)">
-              <Identifier @click="gotoRun(taskLastRun(task.id).id)" :id="taskLastRun(task.id)?.id" />
+              <IdentifierUrl @click="gotoRun(taskLastRun(task.id))" :id="taskLastRun(task.id)?.id" />
             </template>
           </td>
 
