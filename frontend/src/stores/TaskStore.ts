@@ -18,7 +18,7 @@ export const useTaskStore = defineStore("tasks", () => {
       .collection(CCollectionName.tasks)
       .getList<ITask>(1, 100, {
         expand: "node,project",
-        sort: "-created",
+        sort: "-active,-created",
         filter: pb.filter("project.slug = {:slug}", { slug: projectSlug }),
       });
     tasks.value = records.items;

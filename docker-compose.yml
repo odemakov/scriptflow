@@ -1,14 +1,17 @@
 version: '3.8'
 
 services:
-  backend:
+  app:
     build:
-      context: ./src/backend
+      context: .
       dockerfile: Dockerfile
+      target: app
+    env_file:
+      - .env.production
     ports:
-      - "8180:8080"
+      - "8090:8090"
     volumes:
-      - ./src/backend/data:/pb/pb_data
-      - ./src/backend/hooks:/pb/pb_hooks
-      - ./src/backend/migrations:/pb/pb_migrations
+      - ./backend/pb_data:/app/pb_data
+      - ./backend/pb_migrations:/app/pb_migrations
+      - ./backend/sf_logs:/app/sf_logs
     restart: unless-stopped

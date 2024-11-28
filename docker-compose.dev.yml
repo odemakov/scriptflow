@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "4000:4000"
+    networks:
+      - network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-backend
+    volumes:
+      - ./backend/src:/app
+      - ./backend/pb_data:/app/pb_data
+      - ./backend/pb_migrations:/app/pb_migrations
+      - ./backend/sf_logs:/app/sf_logs
+    ports:
+      - "8090:8090"
+    env_file:
+      - .env.development
+    networks:
+      - network
+    depends_on:
+      - vm1
+      - vm2
+
+  vm1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-vm
+    networks:
+      - network
+
+  vm2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-vm
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge

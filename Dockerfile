@@ -1,32 +1,83 @@
-FROM golang:latest AS build
+# Build Frontend
+FROM node:alpine AS builder-frontend
+WORKDIR /app
 
-# ARG PB_VERSION=0.22.23
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm install
 
-WORKDIR /src
-# download and unzip PocketBase
-# ADD https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip /tmp/pb.zip
-# RUN unzip /tmp/pb.zip -d /pb/
+COPY frontend ./
+RUN npm run build
 
-# uncomment to copy the local pb_migrations dir into the image
-# COPY ./pb_migrations /pb/pb_migrations
+# Build Backend
+FROM golang:1.23-alpine AS builder-backend
+WORKDIR /app
 
-# uncomment to copy the local pb_hooks dir into the image
-# COPY ./pb_hooks /pb/pb_hooks
+COPY backend/src/go.mod backend/src/go.sum ./
+RUN go mod download
 
-COPY src/main.go /src/main.go
-RUN go mod init pocketbase-scriptflow && go mod tidy
-RUN CGO_ENABLED=0 go build
+COPY backend/src/*.go ./
+COPY --from=builder-frontend /app/dist ./dist
+RUN go build -tags production -o scriptflow
 
-FROM alpine:latest AS server
+# Production App
+FROM alpine:latest AS app
+WORKDIR /app
 
-RUN apk add --no-cache \
-    unzip \
-    ca-certificates
+COPY --from=builder-backend /app/scriptflow .
+RUN chmod +x /app/scriptflow
 
-# copy executable from build
-COPY --from=build /src/pocketbase-scriptflow /pb/pocketbase-scriptflow
+EXPOSE 8090
+CMD ["/app/scriptflow", "serve", "--http=0.0.0.0:8090"]
 
-EXPOSE 8080
+# Development test VMs
+FROM alpine:latest AS dev-vm
 
-# start PocketBase
-CMD ["/pb/pocketbase-scriptflow", "serve", "--http=0.0.0.0:8080"]
+RUN apk add --no-cache openssh && \
+    mkdir -p /root/.ssh && \
+    chmod 700 /root/.ssh && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "HostKey /etc/ssh/ssh_host_rsa_key" >> /etc/ssh/sshd_config
+
+# Generate SSH host key pair
+RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -q -N ""
+
+# Generate SSH key pair for ssh to test VMs
+RUN mkdir -p /root/.ssh && \
+    ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -q -N "" && \
+    chmod 600 /root/.ssh/id_rsa && \
+    chmod 644 /root/.ssh/id_rsa.pub
+
+RUN cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
+
+EXPOSE 22
+CMD ["/usr/sbin/sshd", "-D"]
+
+# Development Backend
+FROM golang:1.23-alpine AS dev-backend
+WORKDIR /app
+
+RUN apk add --no-cache openssh-client
+ 
+COPY backend/src/go.mod backend/src/go.sum ./
+RUN go mod download
+
+COPY backend/src ./
+RUN go install github.com/air-verse/air@latest
+
+COPY --from=dev-vm /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub
+COPY --from=dev-vm /root/.ssh/id_rsa /root/.ssh/id_rsa
+
+EXPOSE 8090
+CMD ["air", "--build.cmd", "go build -o scriptflow", "--build.bin", "./scriptflow serve --http 0.0.0.0:8090 --dev", "--build.exclude_dir", "pb_data,pb_migrations,sf_logs"]
+
+# Development Frontend
+FROM node:alpine AS dev-frontend
+WORKDIR /app
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm install
+
+COPY frontend ./
+CMD ["npm", "run", "dev"]

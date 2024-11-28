@@ -12,7 +12,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-const frontEndDevURL = "http://localhost:4000"
+const frontEndDevURL = "http://frontend:4000"
 
 // mountFs configures a reverse proxy to forward all requests
 // to the frontend dev server during development.

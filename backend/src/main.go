@@ -46,7 +46,7 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	sf.app.Logger().Info("setup scriptflow scheduler")
 	sf.setupScheduler()
 
-	sf.app.Logger().Info("init scriptflow API")
+	sf.app.Logger().Info("setup scriptflow API")
 	sf.setupApi()
 
 	sf.MountFs()
