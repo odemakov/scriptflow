@@ -20,16 +20,13 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-const (
-	LogsBasePath = "logs"
-)
-
 var (
 	openWebSockets      int
 	openWebSocketsMutex sync.Mutex
 )
 
 func(sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
+	projectId := e.Request.PathValue("projectId")
 	taskId := e.Request.PathValue("taskId")
 
 	// Upgrade HTTP connection to WebSocket
@@ -58,7 +55,7 @@ func(sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 	}()
 
 	// Locate the log file
-	logFilePath := taskTodayLogFilePath(sf.app, taskId)
+	logFilePath := sf.taskTodayLogFilePath(projectId, taskId)
 	sf.app.Logger().Debug("TaskLogWebSocket handler", slog.String("file", logFilePath))
 	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
 		conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
@@ -77,6 +74,7 @@ func(sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 // function to retrieve run log by runId
 func(sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 	runId := e.Request.PathValue("runId")
+	projectId := e.Request.PathValue("projectId")
 
 	// select run by run id
 	run, err := sf.app.FindRecordById(CollectionRuns, runId)
@@ -84,15 +82,25 @@ func(sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 		return e.NotFoundError("Run not found", slog.String("runId", runId))
 	}
 
-	// select task by run id
+	// select task by run
 	task, err := sf.app.FindRecordById(CollectionTasks, run.GetString("task"))
 	if err != nil {
 		return e.NotFoundError("Task not found", slog.String("taskId", run.GetString("task")))
 	}
 
+	// select project by task
+	project, err := sf.app.FindRecordById(CollectionProjects, task.GetString("project"))
+	if err != nil {
+		return e.NotFoundError("Project not found", slog.String("projectId", task.GetString("project")))
+	}
+
+	if project.GetString("id") != projectId {
+		return e.ForbiddenError("Project id does not match", slog.String("projectId", projectId))
+	}
+
 	// get log file path
-	logFilePath := taskLogFilePathDate(
-		sf.app,
+	logFilePath := sf.taskLogFilePathDate(
+		project.GetString("id"),
 		task.GetString("id"),
 		run.GetDateTime("created").Time(),
 	)
@@ -310,23 +318,24 @@ func taskLogFileName(date time.Time) string {
 }
 
 // pb_data/logs/{taskLogFileName}.log
-func taskLogFilePathDate(app *pocketbase.PocketBase, taskId string, dateTime time.Time) string {
+func(sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
 	fileName := taskLogFileName(dateTime.UTC())
 	return filepath.Join(
-		app.DataDir(),
-		LogsBasePath,
+		sf.app.DataDir(),
+		sf.logsDir,
+		projectId,
 		taskId,
 		fileName,
 	)
 }
 
 // Helper function to get today's log file path
-func taskTodayLogFilePath(app *pocketbase.PocketBase, taskId string) string {
-    return taskLogFilePathDate(app, taskId, time.Now())
+func(sf *ScriptFlow) taskTodayLogFilePath(projectId string, taskId string) string {
+    return sf.taskLogFilePathDate(projectId, taskId, time.Now())
 }
 
-func createLogFile(app *pocketbase.PocketBase, taskId string) (*os.File, error) {
-	filePath := taskTodayLogFilePath(app, taskId)
+func(sf *ScriptFlow) createLogFile(projectId string, taskId string) (*os.File, error) {
+	filePath := sf.taskTodayLogFilePath(projectId, taskId)
 	logDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 		return nil, NewFailedCreateLogFileDirectoryError()

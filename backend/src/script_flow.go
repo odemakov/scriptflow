@@ -15,11 +15,15 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow {
+func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool, logsDir string) *ScriptFlow {
+	if logsDir == "" {
+		logsDir = "../sf_logs"
+	}
 	return &ScriptFlow{
 		app:       app,
 		sshPool:   sshPool,
 		scheduler: gocron.NewScheduler(time.UTC),
+		logsDir:   logsDir,
 	}
 }
 
@@ -61,6 +65,7 @@ func (sf *ScriptFlow)scheduleActiveTasks() {
 
 	// schedule tasks one by one
 	for _, task := range tasks {
+		// do it in go routine with a delay to avoid schedule tasks simultaneously
 		go sf.ScheduleTask(task)
 	}
 }
@@ -75,13 +80,6 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 
 	// schedule new task if active
 	if task.GetBool("active") {
-		// find task node
-		node, err := sf.app.FindRecordById(CollectionNodes, task.GetString("node"))
-		if err != nil {
-			sf.app.Logger().Error("failed to find node", taskAttrs(task))
-			return
-		}
-
 		// if task.schedule begins with @
 		if strings.HasPrefix(task.GetString("scedule"), "@") {
 			// for @every 1m schedule task would run every minute from now
@@ -90,16 +88,15 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 		}
 
 		// log scheduled task with task and node details
-		sf.app.Logger().Info("schedule task", nodeAttrs(node), taskAttrs(task))
-		_, err = sf.scheduler.Tag(task.GetString("id")).
+		sf.app.Logger().Info("schedule task", taskAttrs(task))
+		_, err := sf.scheduler.Tag(task.GetString("id")).
 			SingletonMode().
 			Cron(task.GetString("schedule")).
-			Do(sf.runTask, task.GetString("id"), node.GetString("id"))
+			Do(sf.runTask, task.GetString("id"))
 		if err != nil {
 			sf.app.Logger().Error(
 				"failed to schedule task",
 				taskAttrs(task),
-				nodeAttrs(node),
 				slog.Any("error", err),
 			)
 		}
@@ -107,22 +104,22 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 }
 
 // run scheduled task
-func (sf *ScriptFlow) runTask(taskId string, nodeId string) {
-	task, node, err := sf.findNodeAndTaskToRun(taskId, nodeId)
+func (sf *ScriptFlow) runTask(taskId string) {
+	project, task, node, err := sf.findProjectNodeAndTaskToRun(taskId)
 	if err != nil {
-		sf.app.Logger().Error("failed to find node or task", slog.Any("error", err))
+		sf.app.Logger().Error("failed to find project, node or task", slog.Any("error", err))
 		return
 	}
 
 	// Create new run record
-	run, err := sf.createRunRecord(task, node)
+	run, err := sf.createRunRecord(node, task)
 	if err != nil {
 		sf.app.Logger().Error("failed to create record", slog.Any("error", err))
 		return
 	}
 
 	// Create and open log file
-	logFile, err := createLogFile(sf.app, taskId)
+	logFile, err := sf.createLogFile(project.Id, task.Id)
 	if err != nil {
 		sf.app.Logger().Error("Log file error", slog.Any("error", err))
 		return
@@ -168,35 +165,41 @@ func (sf *ScriptFlow) runTask(taskId string, nodeId string) {
 	}
 }
 
-// return corresponding node and task to run
+// return corresponding project, node and task to run
 // check that node is online and task is active
-func (sf *ScriptFlow) findNodeAndTaskToRun(taskId string, nodeId string) (*core.Record, *core.Record, error) {
-	// Fetch node record
-	node, err := sf.app.FindRecordById(CollectionNodes, nodeId)
+func (sf *ScriptFlow) findProjectNodeAndTaskToRun(taskId string) (*core.Record, *core.Record, *core.Record, error) {
+	// Fetch task record
+	task, err := sf.app.FindRecordById(CollectionTasks, taskId)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+
+	// Fetch project record
+	project, err := sf.app.FindRecordById(CollectionProjects, task.GetString("project"))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Fetch node record
+	node, err := sf.app.FindRecordById(CollectionNodes, task.GetString("node"))
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
 	// Skip task if the node is offline
 	if node.GetString("status") != NodeStatusOnline {
-		return nil, nil, NewNodeStatusNotOnlineError()
-	}
-
-	// Fetch task record
-	task, err := sf.app.FindRecordById(CollectionTasks, taskId)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, NewNodeStatusNotOnlineError()
 	}
 
 	// Skip task if it is not active
 	if !task.GetBool("active") {
-		return nil, nil, NewTaskNotActiveError()
+		return nil, nil, nil, NewTaskNotActiveError()
 	}
 
-	return task, node, nil
+	return project, task, node, nil
 }
 
-func (sf *ScriptFlow) createRunRecord(task, node *core.Record) (*core.Record, error) {
+func (sf *ScriptFlow) createRunRecord(node *core.Record, task *core.Record) (*core.Record, error) {
 	runCollection, err := sf.app.FindCollectionByNameOrId(CollectionRuns)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find collection '%s': %w", CollectionRuns, err)
@@ -222,7 +225,7 @@ func (sf *ScriptFlow) createRunRecord(task, node *core.Record) (*core.Record, er
 func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record, run *core.Record, logFile *os.File) (int, error) {
 	// add run mark to the log file
 	runMark := fmt.Sprintf(
-		logSeparator,
+		LogSeparator,
 		time.Now().Format(time.RFC3339),
 		run.Id,
 	)

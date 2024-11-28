@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	CollectionTasks   = "tasks"
-	CollectionRuns    = "runs"
-	CollectionNodes   = "nodes"
-	NodeStatusOnline  = "online"
-	NodeStatusOffline = "offline"
-	SchedulePeriod    = 60 // max delay in seconds for tasks with @every schedule
-	logSeparator      = "[%s] [scriptflow] run %s"
+	CollectionProjects = "projects"
+	CollectionTasks    = "tasks"
+	CollectionRuns     = "runs"
+	CollectionNodes    = "nodes"
+	NodeStatusOnline   = "online"
+	NodeStatusOffline  = "offline"
+	SchedulePeriod     = 60 // max delay in seconds for tasks with @every schedule
+	LogSeparator       = "[%s] [scriptflow] run %s"
 )
 
 const (
@@ -33,6 +34,7 @@ type ScriptFlow struct {
 	scheduler *gocron.Scheduler
 	sshPool   *sshrun.Pool
 	lock      sync.Mutex
+	logsDir   string
 }
 
 // type Node struct {

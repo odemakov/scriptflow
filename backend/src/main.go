@@ -11,7 +11,48 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func initScheduler(sf *ScriptFlow) {
+func main() {
+	app := pocketbase.New()
+
+	initScriptFlow(app)
+
+	if err := app.Start(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func initScriptFlow(app *pocketbase.PocketBase) {
+	// get home directory of current user
+	// TODO: this is not cross-platform and should be fixed.
+	// Also service users often don't have home directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("failed to get home directory: %v", err)
+	}
+
+	runCfg := &sshrun.RunConfig{
+		PrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
+	}
+	sshPool := sshrun.NewPool(runCfg)
+
+	// register -logsDir parameter
+	var logsDir string
+	app.RootCmd.PersistentFlags().StringVar(&logsDir, "logsDir", "", "the directory with the Scriptflow logs")
+	app.RootCmd.ParseFlags(os.Args[1:])
+
+	sf := NewScriptFlow(app, sshPool, logsDir)
+	sf.Start()
+
+	sf.app.Logger().Info("setup scriptflow scheduler")
+	sf.setupScheduler()
+
+	sf.app.Logger().Info("init scriptflow API")
+	sf.setupApi()
+
+	sf.MountFs()
+}
+
+func(sf *ScriptFlow) setupScheduler() {
 	// schedule system tasks
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// schedule NodeStatus task to run every 30 seconds
@@ -72,47 +113,13 @@ func initScheduler(sf *ScriptFlow) {
 	})
 }
 
-func initApi(sf *ScriptFlow) {
+func(sf *ScriptFlow) setupApi() {
 	// Register WebSocket handler
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
-		e.Router.GET("/api/scriptflow/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
-		e.Router.GET("/api/scriptflow/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
+		e.Router.GET("/api/scriptflow/{projectId}/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
+		e.Router.GET("/api/scriptflow/{projectId}/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/stats", sf.ApiScriptFlowStats).Bind(apis.RequireAuth())
 		return e.Next()
 	})
-}
-
-
-func initScriptFlow(app *pocketbase.PocketBase) {
-	// get home directory of current user
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf("failed to get home directory: %v", err)
-	}
-
-	runCfg := &sshrun.RunConfig{
-		PrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
-	}
-	sshPool := sshrun.NewPool(runCfg)
-
-	sf := NewScriptFlow(app, sshPool)
-	sf.Start()
-
-	sf.app.Logger().Info("init ScriptFlow Scheduler")
-	initScheduler(sf)
-	sf.app.Logger().Info("init ScriptFlow API")
-	initApi(sf)
-
-	sf.MountFs()
-}
-
-func main() {
-	app := pocketbase.New()
-
-	initScriptFlow(app)
-
-	if err := app.Start(); err != nil {
-		log.Fatal(err)
-	}
 }
