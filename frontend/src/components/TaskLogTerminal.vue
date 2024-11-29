@@ -31,7 +31,7 @@ let webSocket: WebSocket;
 
 watch(() => props.task, async () => {
   try {
-    const ws = `${import.meta.env.VITE_PB_BACKEND_URL_WS}/api/scriptflow/${project.value.id}/task/${props.task.id}/log-ws`;
+    const ws = `/api/scriptflow/${project.value.id}/task/${props.task.id}/log-ws`;
     webSocket = new WebSocket(ws);
     // Handle WebSocket events
     webSocket.onerror = () => {

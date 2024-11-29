@@ -39,7 +39,7 @@ watch(() => props.run, async () => {
 
 // function to retrieve logs from the server
 const fetchLogs = async () => {
-  const logUrl = `${import.meta.env.VITE_PB_BACKEND_URL}/api/scriptflow/${project.value.id}/run/${props.run.id}/log`;
+  const logUrl = `/api/scriptflow/${project.value.id}/run/${props.run.id}/log`;
 
   // set Autorization header with token
   fetch(logUrl, {

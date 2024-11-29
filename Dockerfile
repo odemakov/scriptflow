@@ -18,6 +18,8 @@ RUN go mod download
 COPY backend/*.go ./
 COPY backend/migrations/*.go ./migrations/
 COPY --from=builder-frontend /app/dist ./dist
+
+ENV CGO_ENABLED=0
 RUN go build -tags production -o scriptflow
 
 # Production App
@@ -60,7 +62,7 @@ FROM golang:1.23-alpine AS dev-backend
 WORKDIR /app
 
 RUN apk add --no-cache openssh-client
- 
+
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 

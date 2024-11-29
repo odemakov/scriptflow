@@ -4,7 +4,7 @@ import { defineStore } from "pinia";
 import PocketBase from "pocketbase";
 
 // Initialize PocketBase client
-const pb = new PocketBase(import.meta.env.VITE_PB_BACKEND_URL);
+const pb = new PocketBase();
 
 export const useAuthStore = defineStore("auth", () => {
   // State variables
