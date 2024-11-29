@@ -1,6 +1,6 @@
 # Script-flow is yet another script framework
 
-**Script-flow** is a lightweight framework designed to simplify script management, execution monitoring and alerting(todo). It provides an easy-to-use interface for running scripts, collecting logs and exit statuses.
+**Script-flow** is a lightweight, one-file solution designed to simplify script management, execution, monitoring and alerting(TODO). It provides an easy-to-use interface for running scripts, collecting and viewing logs and exit statuses. Based on PocketBase v0.23 with simple Vue app as UI embeded in sinlge binary file.
 
 ## Features
 
@@ -20,9 +20,12 @@
 
 ## Quick Start
 
+TODO
+
 ### Using Docker (Recommended)
 
-1. Clone the repository:
+1. Clone the repository: `git clone https://github.com/odemakov/script-flow`
+2. Build `cd script-flow && make build && make extract`
 
 ### Cron scheduling
 
@@ -30,7 +33,6 @@ Task.schedule field parsed by [robfig/cron/v3](https://pkg.go.dev/github.com/rob
 
 ### Development
 
-`cd scc/backend`
+Development environment completely inside Docker with autorestart backend and frotend apps on file changes.
 
-`go run main.go --dir ../data/ serve`
-run main.go error.go tasks.go logs.go --dir ../data/ serve
+`make dev`

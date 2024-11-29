@@ -5,7 +5,7 @@ frontend/.env
 frontend/.env.*
 
 backend/pb_data
-backend/sf_data
+backend/sf_logs
 backend/tmp/
 backend/scriptflow
 .git
