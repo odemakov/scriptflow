@@ -9,6 +9,7 @@ declare global {
 
   // Declare constants in a global namespace
   const CRunStatus: typeof Types.CRunStatus;
+  const CNodeStatus: typeof Types.CNodeStatus;
   const CCollectionName: typeof Types.CCollectionName;
   const CTerminalDefaults: typeof Types.CTerminalDefaults;
 }

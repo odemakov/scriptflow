@@ -14,6 +14,11 @@ export const CRunStatus = {
   internal_error: "internal_error",
 } as const;
 
+export const CNodeStatus = {
+  online: "online",
+  offline: "offline",
+} as const;
+
 export const CTerminalDefaults = {
   cursorBlink: true,
   // fontFamily: 'monospace',
