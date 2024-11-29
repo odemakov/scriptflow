@@ -15,6 +15,15 @@ build:
 dev:
 	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development up --build
 
+# Create migration file
+create_migration_snapshot:
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development exec backend go run . migrate history-sync
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development exec backend go run . migrate collections
+
+# Stop dev stack
+stop:
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development stop
+
 # Run unit tests for frontend and backend
 test:
 	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golang:1.23-alpine go test ./...

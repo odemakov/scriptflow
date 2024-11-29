@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   frontend:
@@ -22,7 +21,7 @@ services:
     volumes:
       - ./backend/src:/app
       - ./backend/pb_data:/app/pb_data
-      - ./backend/pb_migrations:/app/pb_migrations
+      - ./backend/migrations:/app/migrations
       - ./backend/sf_logs:/app/sf_logs
     ports:
       - "8090:8090"

@@ -9,10 +9,19 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+
+	// track migrations
+	_ "scriptflow/migrations"
 )
 
 func main() {
 	app := pocketbase.New()
+
+    // enable auto creation of migration files when making collection changes in the Dashboard
+    migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+        Automigrate: app.IsDev(),
+    })
 
 	initScriptFlow(app)
 
