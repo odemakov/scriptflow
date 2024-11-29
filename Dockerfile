@@ -12,10 +12,11 @@ RUN npm run build
 FROM golang:1.23-alpine AS builder-backend
 WORKDIR /app
 
-COPY backend/src/go.mod backend/src/go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
-COPY backend/src/*.go ./
+COPY backend/*.go ./
+COPY backend/migrations/*.go ./migrations/
 COPY --from=builder-frontend /app/dist ./dist
 RUN go build -tags production -o scriptflow
 
@@ -60,17 +61,17 @@ WORKDIR /app
 
 RUN apk add --no-cache openssh-client
  
-COPY backend/src/go.mod backend/src/go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
-COPY backend/src ./
+COPY backend ./
 RUN go install github.com/air-verse/air@latest
 
 COPY --from=dev-vm /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub
 COPY --from=dev-vm /root/.ssh/id_rsa /root/.ssh/id_rsa
 
 EXPOSE 8090
-CMD ["air", "--build.cmd", "go build -o scriptflow", "--build.bin", "./scriptflow serve --http 0.0.0.0:8090 --dev", "--build.exclude_dir", "pb_data,migrations,sf_logs"]
+CMD ["air", "--build.cmd", "go build -o scriptflow", "--build.bin", "./scriptflow serve --http 0.0.0.0:8090 --dev", "--build.exclude_dir", "pb_data,sf_logs"]
 
 # Development Frontend
 FROM node:alpine AS dev-frontend

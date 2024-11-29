@@ -5,7 +5,7 @@
 DOCKER_COMPOSE=docker compose
 DOCKER=docker
 PROJECT_NAME=scriptflow
-BUILD_OUTPUT=backend/src/scriptflow
+BUILD_OUTPUT=scriptflow
 
 # Build production-ready image and extract executable
 build:
@@ -13,16 +13,16 @@ build:
 
 # Run development environment
 dev:
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development up --build
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml up --build
 
 # Create migration file
 create_migration_snapshot:
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development exec backend go run . migrate history-sync
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development exec backend go run . migrate collections
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec backend go run . migrate history-sync
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec backend go run . migrate collections
 
 # Stop dev stack
 stop:
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml --env-file .env.development stop
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml stop
 
 # Run unit tests for frontend and backend
 test:
