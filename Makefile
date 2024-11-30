@@ -8,8 +8,8 @@ PROJECT_NAME=scriptflow
 BUILD_OUTPUT=scriptflow
 
 # Build production-ready image and extract executable
-build:
-	DOCKER_BUILDKIT=1 $(DOCKER) build --no-cache --platform linux/amd64 --target app -t $(PROJECT_NAME):prod .
+#build:
+#	DOCKER_BUILDKIT=1 $(DOCKER) build --no-cache --target app -t $(PROJECT_NAME):prod .
 
 # Run development environment
 dev:
