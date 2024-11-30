@@ -11,14 +11,14 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-//go:embed dist
+//go:embed frontend/dist
 var embeddedFiles embed.FS
 
 // mountFs configures the embedded file system for the application's
 // front-end assets when building for production.
 func (sf *ScriptFlow) MountFs() {
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		fs, err := fs.Sub(embeddedFiles, "dist")
+		fs, err := fs.Sub(embeddedFiles, "frontend/dist")
 		if err != nil {
 			return err
 		}

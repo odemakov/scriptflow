@@ -12,11 +12,11 @@ RUN npm run build
 FROM golang:1.23-alpine AS builder-backend
 WORKDIR /app
 
-COPY backend/go.mod backend/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY backend/*.go ./
-COPY backend/migrations/*.go ./migrations/
+COPY *.go ./
+COPY migrations/*.go ./migrations/
 COPY --from=builder-frontend /app/dist ./dist
 
 ENV CGO_ENABLED=0
@@ -63,10 +63,11 @@ WORKDIR /app
 
 RUN apk add --no-cache openssh-client
 
-COPY backend/go.mod backend/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY backend ./
+COPY api.go api_test.go error.go fs-dev.go fs-prod.go go.mod go.sum main.go scriptflow.go types.go ./
+
 RUN go install github.com/air-verse/air@latest
 
 COPY --from=dev-vm /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub

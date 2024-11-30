@@ -13,16 +13,16 @@ BUILD_OUTPUT=scriptflow
 
 # Run development environment
 dev:
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml up --build
+	$(DOCKER_COMPOSE) -f docker-compose.yml up --build
 
 # Create migration file
 create_migration_snapshot:
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec backend go run . migrate history-sync
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec backend go run . migrate collections
+	$(DOCKER_COMPOSE) -f docker-compose.yml exec backend go run . migrate history-sync
+	$(DOCKER_COMPOSE) -f docker-compose.yml exec backend go run . migrate collections
 
 # Stop dev stack
 stop:
-	$(DOCKER_COMPOSE) -f docker-compose.dev.yml stop
+	$(DOCKER_COMPOSE) -f docker-compose.yml stop
 
 # Run unit tests for frontend and backend
 test: _test_backend _test_frontend

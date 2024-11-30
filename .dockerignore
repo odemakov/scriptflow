@@ -4,11 +4,11 @@ frontend/.env*
 frontend/.env
 frontend/.env.*
 
-backend/pb_data
-backend/sf_logs
-backend/tmp/
-backend/scriptflow
+.builds
+.data
 .git
 .gitignore
 
 .env.production
+tmp
+scriptflow

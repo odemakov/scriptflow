@@ -1,6 +1,6 @@
-backend/pb_data/
-backend/sf_logs/
-backend/tmp/
-scriptflow
+.builds
+.data
 .env.production
 frontend/.env
+scriptflow
+tmp
