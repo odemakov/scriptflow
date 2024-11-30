@@ -25,9 +25,12 @@ stop:
 	$(DOCKER_COMPOSE) -f docker-compose.dev.yml stop
 
 # Run unit tests for frontend and backend
-test:
-	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golang:1.23-alpine go test ./...
-	$(DOCKER) run --rm -v $(PWD)/frontend:/app -w /app node:alpine npm test
+test: _test_backend _test_frontend
+_test_backend:
+	@echo $(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golang:1.23-alpine go test ./...
+_test_frontend:
+	$(DOCKER) build --no-cache --target builder-frontend -t $(PROJECT_NAME):builder-frontend .
+	$(DOCKER) run --rm $(PROJECT_NAME):builder-frontend npm run test
 
 # Stop all containers and clean up
 clean:
