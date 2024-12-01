@@ -44,12 +44,7 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	}
 	sshPool := sshrun.NewPool(runCfg)
 
-	// register -logsDir parameter
-	var logsDir string
-	app.RootCmd.PersistentFlags().StringVar(&logsDir, "logsDir", "", "the directory with the Scriptflow logs")
-	app.RootCmd.ParseFlags(os.Args[1:])
-
-	sf := NewScriptFlow(app, sshPool, logsDir)
+	sf := NewScriptFlow(app, sshPool)
 	sf.Start()
 
 	sf.app.Logger().Info("setup scriptflow scheduler")

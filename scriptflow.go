@@ -15,15 +15,12 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool, logsDir string) *ScriptFlow {
-	if logsDir == "" {
-		logsDir = "../sf_logs"
-	}
+func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow {
 	return &ScriptFlow{
 		app:       app,
 		sshPool:   sshPool,
 		scheduler: gocron.NewScheduler(time.UTC),
-		logsDir:   logsDir,
+        logsDir:   app.DataDir() + "../sf_logs",
 	}
 }
 
