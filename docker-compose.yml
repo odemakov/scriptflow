@@ -23,7 +23,6 @@ services:
     volumes:
       - ./:/app
       - ./.data/pb_data:/app/pb_data
-      - ./.data/migrations:/app/migrations
       - ./.data/sf_logs:/app/sf_logs
     ports:
       - "8090:8090"

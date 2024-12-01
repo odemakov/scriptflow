@@ -17,20 +17,10 @@ RUN go mod download
 
 COPY *.go ./
 COPY migrations/*.go ./migrations/
-COPY --from=builder-frontend /app/dist ./dist
+COPY --from=builder-frontend /app/dist ./frontend/
 
 ENV CGO_ENABLED=0
-RUN go build -tags production -o scriptflow
-
-# Production App
-FROM alpine:latest AS app
-WORKDIR /app
-
-COPY --from=builder-backend /app/scriptflow .
-RUN chmod +x /app/scriptflow
-
-EXPOSE 8090
-CMD ["/app/scriptflow", "serve", "--http=0.0.0.0:8090"]
+RUN go build -o scriptflow
 
 # Development test VMs
 FROM alpine:latest AS dev-vm
@@ -67,6 +57,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY api.go api_test.go error.go fs-dev.go fs-prod.go go.mod go.sum main.go scriptflow.go types.go ./
+COPY migrations/*.go ./migrations/
 
 RUN go install github.com/air-verse/air@latest
 

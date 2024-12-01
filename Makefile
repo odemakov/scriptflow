@@ -7,10 +7,6 @@ DOCKER=docker
 PROJECT_NAME=scriptflow
 BUILD_OUTPUT=scriptflow
 
-# Build production-ready image and extract executable
-#build:
-#	DOCKER_BUILDKIT=1 $(DOCKER) build --no-cache --target app -t $(PROJECT_NAME):prod .
-
 # Run development environment
 dev:
 	$(DOCKER_COMPOSE) -f docker-compose.yml up --build
@@ -35,9 +31,3 @@ _test_frontend:
 # Stop all containers and clean up
 clean:
 	$(DOCKER_COMPOSE) down --volumes --remove-orphans
-
-# Extract built Go executable from the production image
-extract:
-	$(DOCKER) create --name temp-container $(PROJECT_NAME):prod
-	$(DOCKER) cp temp-container:/app/scriptflow $(BUILD_OUTPUT)
-	$(DOCKER) rm -f temp-container
