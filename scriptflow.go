@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,7 +21,7 @@ func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow
 		app:       app,
 		sshPool:   sshPool,
 		scheduler: gocron.NewScheduler(time.UTC),
-		logsDir:   app.DataDir() + "../sf_logs",
+		logsDir:   filepath.Join(app.DataDir(), "..", "sf_logs"),
 	}
 }
 
@@ -73,7 +74,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 	defer sf.lock.Unlock()
 
 	// remove existing task
-	sf.scheduler.RemoveByTag(task.GetString("id"))
+	_ = sf.scheduler.RemoveByTag(task.GetString("id"))
 
 	// schedule new task if active
 	if task.GetBool("active") {

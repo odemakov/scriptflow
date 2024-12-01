@@ -61,7 +61,7 @@ func (sf *ScriptFlow) setupScheduler() {
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// schedule NodeStatus task to run every 30 seconds
 		sf.app.Logger().Info("scheduling system tasks")
-		sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
+		_, _ = sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
 			go sf.JobNodeStatus()
 		})
 		return e.Next()
@@ -93,7 +93,7 @@ func (sf *ScriptFlow) setupScheduler() {
 	// Remove scheduled task
 	sf.app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == CollectionTasks {
-			sf.scheduler.RemoveByTag(e.Record.Id)
+			_ = sf.scheduler.RemoveByTag(e.Record.Id)
 		}
 		return e.Next()
 	})

@@ -58,7 +58,10 @@ func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 	logFilePath := sf.taskTodayLogFilePath(projectId, taskId)
 	sf.app.Logger().Debug("TaskLogWebSocket handler", slog.String("file", logFilePath))
 	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
-		conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
+		err := conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
+		if err != nil {
+			return e.InternalServerError(err.Error(), "Failed to write to socket")
+		}
 		return e.Next()
 	}
 
@@ -214,7 +217,7 @@ func watchFileChanges(conn *websocket.Conn, filePath string, app *pocketbase.Poc
 	defer file.Close()
 
 	// Start at the end of the file
-	offset, err := file.Seek(0, os.SEEK_END)
+	offset, err := file.Seek(0, io.SeekStart)
 	if err != nil {
 		return err
 	}
@@ -242,7 +245,7 @@ func watchFileChanges(conn *websocket.Conn, filePath string, app *pocketbase.Poc
 // Helper function to read and send new lines from the file
 func streamNewLines(file *os.File, conn *websocket.Conn, startOffset int64) (int64, error) {
 	// Seek to the last offset
-	_, err := file.Seek(startOffset, os.SEEK_SET)
+	_, err := file.Seek(startOffset, io.SeekStart)
 	if err != nil {
 		return startOffset, err
 	}
@@ -283,7 +286,15 @@ func readLastLines(file *os.File, n int) ([]string, error) {
 		}
 
 		cursor -= chunkSize
-		file.Seek(cursor, io.SeekStart)
+		offset, err := file.Seek(cursor, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+
+		if offset != cursor {
+			return nil, io.ErrUnexpectedEOF
+		}
+
 		readBytes, err := file.Read(buf[:chunkSize])
 		if err != nil {
 			return nil, err
@@ -320,7 +331,6 @@ func taskLogFileName(date time.Time) string {
 func (sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
 	fileName := taskLogFileName(dateTime.UTC())
 	return filepath.Join(
-		sf.app.DataDir(),
 		sf.logsDir,
 		projectId,
 		taskId,
