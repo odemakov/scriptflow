@@ -172,14 +172,13 @@ const toggleTaskActive = async (taskId: string) => {
   <PageTitle :title="`&lt;${project.name}&gt; project`" :back="back" />
 
   <div class="overflow-x-auto">
-    <table class="table">
+    <table class="table table-xs">
       <!-- Table head -->
       <thead>
         <tr class="">
           <th class=""></th>
           <th class="">id</th>
           <th class="">slug</th>
-          <th class="">name</th>
           <th class="">schedule</th>
           <th class="">command</th>
           <th class="">run id</th>
@@ -206,11 +205,9 @@ const toggleTaskActive = async (taskId: string) => {
           </td>
 
           <td>
-            {{ task.name }}
-          </td>
-
-          <td>
-            {{ task.schedule }}
+            <span class="whitespace-nowrap">
+              {{ task.schedule }}
+            </span>
           </td>
 
           <td>
