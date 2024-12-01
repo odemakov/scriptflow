@@ -20,7 +20,7 @@ func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow
 		app:       app,
 		sshPool:   sshPool,
 		scheduler: gocron.NewScheduler(time.UTC),
-        logsDir:   app.DataDir() + "../sf_logs",
+		logsDir:   app.DataDir() + "../sf_logs",
 	}
 }
 
@@ -49,7 +49,7 @@ func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted() {
 	}
 }
 
-func (sf *ScriptFlow)scheduleActiveTasks() {
+func (sf *ScriptFlow) scheduleActiveTasks() {
 	// find all active tasks
 	tasks, err := sf.app.FindAllRecords(
 		CollectionTasks,

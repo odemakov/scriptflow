@@ -25,7 +25,7 @@ var (
 	openWebSocketsMutex sync.Mutex
 )
 
-func(sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
+func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 	projectId := e.Request.PathValue("projectId")
 	taskId := e.Request.PathValue("taskId")
 
@@ -72,7 +72,7 @@ func(sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 }
 
 // function to retrieve run log by runId
-func(sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
+func (sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 	runId := e.Request.PathValue("runId")
 	projectId := e.Request.PathValue("projectId")
 
@@ -115,13 +115,12 @@ func(sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 	})
 }
 
-func(sf *ScriptFlow) ApiScriptFlowStats(e *core.RequestEvent) error {
+func (sf *ScriptFlow) ApiScriptFlowStats(e *core.RequestEvent) error {
 	openWebSocketsMutex.Lock()
 	count := openWebSockets
 	openWebSocketsMutex.Unlock()
 	return e.JSON(http.StatusOK, map[string]int{"WebSocketsCount": count})
 }
-
 
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 	//delimiterRegex := regexp.MustCompile(`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}\] \[scriptflow\] run ([a-z0-9]{15})`)
@@ -284,7 +283,7 @@ func readLastLines(file *os.File, n int) ([]string, error) {
 		}
 
 		cursor -= chunkSize
-		file.Seek(cursor, os.SEEK_SET)
+		file.Seek(cursor, io.SeekStart)
 		readBytes, err := file.Read(buf[:chunkSize])
 		if err != nil {
 			return nil, err
@@ -318,7 +317,7 @@ func taskLogFileName(date time.Time) string {
 }
 
 // pb_data/logs/{taskLogFileName}.log
-func(sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
+func (sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
 	fileName := taskLogFileName(dateTime.UTC())
 	return filepath.Join(
 		sf.app.DataDir(),
@@ -330,11 +329,11 @@ func(sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time
 }
 
 // Helper function to get today's log file path
-func(sf *ScriptFlow) taskTodayLogFilePath(projectId string, taskId string) string {
-    return sf.taskLogFilePathDate(projectId, taskId, time.Now())
+func (sf *ScriptFlow) taskTodayLogFilePath(projectId string, taskId string) string {
+	return sf.taskLogFilePathDate(projectId, taskId, time.Now())
 }
 
-func(sf *ScriptFlow) createLogFile(projectId string, taskId string) (*os.File, error) {
+func (sf *ScriptFlow) createLogFile(projectId string, taskId string) (*os.File, error) {
 	filePath := sf.taskTodayLogFilePath(projectId, taskId)
 	logDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {

@@ -18,10 +18,10 @@ import (
 func main() {
 	app := pocketbase.New()
 
-    // enable auto creation of migration files when making collection changes in the Dashboard
-    migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-        Automigrate: app.IsDev(),
-    })
+	// enable auto creation of migration files when making collection changes in the Dashboard
+	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+		Automigrate: app.IsDev(),
+	})
 
 	initScriptFlow(app)
 
@@ -56,7 +56,7 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	sf.MountFs()
 }
 
-func(sf *ScriptFlow) setupScheduler() {
+func (sf *ScriptFlow) setupScheduler() {
 	// schedule system tasks
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// schedule NodeStatus task to run every 30 seconds
@@ -117,7 +117,7 @@ func(sf *ScriptFlow) setupScheduler() {
 	})
 }
 
-func(sf *ScriptFlow) setupApi() {
+func (sf *ScriptFlow) setupApi() {
 	// Register WebSocket handler
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
