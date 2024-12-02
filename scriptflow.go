@@ -82,7 +82,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 		if strings.HasPrefix(task.GetString("scedule"), "@") {
 			// for @every 1m schedule task would run every minute from now
 			// we add random delay here to avoid running all tasks at the same time
-			time.Sleep(time.Duration(time.Second * time.Duration(rand.Intn(SchedulePeriod))))
+			time.Sleep(time.Second * time.Duration(rand.Intn(SchedulePeriod)))
 		}
 
 		// log scheduled task with task and node details
@@ -272,7 +272,7 @@ func (sf *ScriptFlow) JobNodeStatus() {
 			// with empty callback functions, we just check if the command runs successfully
 			_, err := sf.sshPool.Run(sshCfg, "uptime", func(stdout string) {}, func(stderr string) {})
 			if err != nil {
-				sf.app.Logger().Error("failed to run uptime command", nodeAttrs(node), slog.Any("error", err))
+				sf.app.Logger().Error("failed to check node status", nodeAttrs(node), slog.Any("error", err))
 				newStatus = NodeStatusOffline
 			} else {
 				newStatus = NodeStatusOnline
