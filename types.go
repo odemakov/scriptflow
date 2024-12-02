@@ -19,6 +19,7 @@ const (
 	NodeStatusOffline  = "offline"
 	SchedulePeriod     = 60 // max delay in seconds for tasks with @every schedule
 	LogSeparator       = "[%s] [scriptflow] run %s"
+	LogsMaxDays        = 90
 )
 
 const (
@@ -29,11 +30,18 @@ const (
 	RunStatusInternalError = "internal_error"
 )
 
+// ScriptFlowLocks encapsulates the locks for different tasks
+type ScriptFlowLocks struct {
+	scheduleTask          sync.Mutex
+	jobCheckNodeStatus    sync.Mutex
+	jobRemoveOutdatedLogs sync.Mutex
+}
+
 type ScriptFlow struct {
 	app       *pocketbase.PocketBase
 	scheduler *gocron.Scheduler
 	sshPool   *sshrun.Pool
-	lock      sync.Mutex
+	locks     *ScriptFlowLocks
 	logsDir   string
 }
 
@@ -75,4 +83,40 @@ func taskAttrs(task *core.Record) slog.Attr {
 		"name":     task.GetString("name"),
 		"schedule": task.GetString("schedule"),
 	})
+}
+
+// return project attributes for logging
+func projectAttrs(project *core.Record) slog.Attr {
+	return slog.Any("task", map[string]interface{}{
+		"id":     project.Id,
+		"name":   project.GetString("name"),
+		"config": project.GetString("config"),
+	})
+}
+
+// ProjectConfig represents the JSON structure of the config field.
+type ProjectConfig struct {
+	LogsMaxDays *int `json:"logsMaxDays"`
+}
+
+// GetProjectConfig retrieves a specific attribute from the project's "config" JSON field.
+// Returns the value of the attribute if found, or the defaultValue if the attribute is not present or invalid.
+func GetProjectConfigAttr(project *core.Record, attr string, defaultValue interface{}) (interface{}, error) {
+	// Retrieve the raw "config" field from the project
+	var config ProjectConfig
+	err := project.UnmarshalJSONField("config", &config)
+	if err != nil {
+		return defaultValue, nil // Return defaultValue if config cannot be parsed
+	}
+
+	// Handle specific attributes
+	switch attr {
+	case "logsMaxDays":
+		if config.LogsMaxDays != nil {
+			return *config.LogsMaxDays, nil // Dereference pointer to get the value
+		}
+		return defaultValue, nil // Use defaultValue if LogsMaxDays is nil
+	default:
+		return defaultValue, nil // Fallback for unsupported attributes
+	}
 }

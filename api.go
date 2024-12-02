@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -319,39 +318,10 @@ func readLastLines(file *os.File, n int) ([]string, error) {
 }
 
 // {year}{month}{day}.log
-func taskLogFileName(date time.Time) string {
+func TaskLogFileName(date time.Time) string {
 	year, month, day := date.UTC().Date()
 	return fmt.Sprintf(
 		"%d%02d%02d.log",
 		year, month, day,
 	)
-}
-
-// pb_data/logs/{taskLogFileName}.log
-func (sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
-	fileName := taskLogFileName(dateTime.UTC())
-	return filepath.Join(
-		sf.logsDir,
-		projectId,
-		taskId,
-		fileName,
-	)
-}
-
-// Helper function to get today's log file path
-func (sf *ScriptFlow) taskTodayLogFilePath(projectId string, taskId string) string {
-	return sf.taskLogFilePathDate(projectId, taskId, time.Now())
-}
-
-func (sf *ScriptFlow) createLogFile(projectId string, taskId string) (*os.File, error) {
-	filePath := sf.taskTodayLogFilePath(projectId, taskId)
-	logDir := filepath.Dir(filePath)
-	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-		return nil, NewFailedCreateLogFileDirectoryError()
-	}
-
-	if _, err := os.Stat(filePath); err == nil {
-		return os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	}
-	return os.Create(filePath)
 }

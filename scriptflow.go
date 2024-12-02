@@ -21,6 +21,7 @@ func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow
 		app:       app,
 		sshPool:   sshPool,
 		scheduler: gocron.NewScheduler(time.UTC),
+		locks:     &ScriptFlowLocks{},
 		logsDir:   filepath.Join(app.DataDir(), "..", "sf_logs"),
 	}
 }
@@ -70,8 +71,8 @@ func (sf *ScriptFlow) scheduleActiveTasks() {
 
 func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 	// Acquire lock to ensure scheduler access is thread-safe
-	sf.lock.Lock()
-	defer sf.lock.Unlock()
+	sf.locks.scheduleTask.Lock()
+	defer sf.locks.scheduleTask.Unlock()
 
 	// remove existing task
 	_ = sf.scheduler.RemoveByTag(task.GetString("id"))
@@ -251,8 +252,12 @@ func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record
 	)
 }
 
-// simple task that checks all the nodes and marks them as online or offline
-func (sf *ScriptFlow) JobNodeStatus() {
+// JobNodeStatus checks all the nodes and marks them as online or offline
+func (sf *ScriptFlow) JobCheckNodeStatus() {
+	// Acquire lock to ensure scheduler access is thread-safe
+	sf.locks.jobCheckNodeStatus.Lock()
+	defer sf.locks.jobCheckNodeStatus.Unlock()
+
 	nodes, err := sf.app.FindAllRecords(CollectionNodes)
 	if err != nil {
 		sf.app.Logger().Error("failed to query nodes collection", slog.Any("error", err))
@@ -301,6 +306,126 @@ func (sf *ScriptFlow) JobNodeStatus() {
 	}
 }
 
-// simple task that remove outdated logs
 func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
+	// Acquire lock to ensure scheduler access is thread-safe
+	sf.locks.jobRemoveOutdatedLogs.Lock()
+	defer sf.locks.jobRemoveOutdatedLogs.Unlock()
+
+	projects, err := sf.app.FindAllRecords(CollectionProjects)
+	if err != nil {
+		sf.app.Logger().Error("failed to query project collection", slog.Any("error", err))
+		return
+	}
+
+	for _, project := range projects {
+		sf.app.Logger().Info("start remove outdated files for project", projectAttrs(project))
+
+		logsMaxDays, err := GetProjectConfigAttr(project, "logsMaxDays", LogsMaxDays)
+		if err != nil {
+			sf.app.Logger().Error("failed to get project's logsMaxDays attr", slog.Any("error", err))
+			continue
+		}
+
+		// logsMaxDays is returned as an interface{}, so assert its type
+		logsMaxDaysInt, ok := logsMaxDays.(int)
+		if !ok {
+			sf.app.Logger().Error("unexpected type for logsMaxDays, expected int, got: %T\n", logsMaxDays)
+			continue
+		}
+
+		tasks, err := sf.app.FindAllRecords(CollectionTasks, dbx.HashExp{"project": project.Id})
+		if err != nil {
+			sf.app.Logger().Error("failed to query tasks collection", slog.Any("error", err))
+			return
+		}
+
+		for _, task := range tasks {
+			// Directory for log files
+			logDir := sf.taskLogRootDir(project.Id, task.Id)
+			files, err := os.ReadDir(logDir)
+			if err != nil {
+				sf.app.Logger().Error("failed to read task log directory", taskAttrs(task), slog.Any("error", err))
+				continue
+			}
+
+			// Calculate cutoff time, add one extra day
+			cutoff := time.Now().AddDate(0, 0, -logsMaxDaysInt-1)
+
+			// Iterate over files and remove outdated logs
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+
+				fileName := file.Name()
+				fileDate, err := sf.taskFileDate(fileName)
+				if err != nil {
+					sf.app.Logger().Error("failed to parse log file name", slog.Any("fileName", fileName), slog.Any("error", err))
+					continue
+				}
+
+				// Remove file if older than logsMaxDays
+				if fileDate.Before(cutoff) {
+					filePath := filepath.Join(logDir, fileName)
+					err := os.Remove(filePath)
+					if err != nil {
+						sf.app.Logger().Error("failed to remove outdated log file", slog.String("filePath", filePath), slog.Any("error", err))
+					} else {
+						sf.app.Logger().Info("removed outdated log file", slog.String("filePath", filePath))
+					}
+				}
+			}
+		}
+	}
+}
+
+func (sf *ScriptFlow) taskFileDate(fileName string) (time.Time, error) {
+	// Ensure file name matches the format YYYYMMDD.log
+	if len(fileName) != 12 || fileName[len(fileName)-4:] != ".log" {
+		return time.Time{}, NewInvalidLogFileNameError()
+	}
+
+	// Parse date from filename
+	dateStr := fileName[:8] // YYYYMMDD
+	fileDate, err := time.Parse("20060102", dateStr)
+	if err != nil {
+		return time.Time{}, NewFailedParseDateFromLogFileNameError()
+	}
+	return fileDate, nil
+}
+
+// {sf.logsDir}/{projectId}/{taskId}
+func (sf *ScriptFlow) taskLogRootDir(projectId string, taskId string) string {
+	return filepath.Join(
+		sf.logsDir,
+		projectId,
+		taskId,
+	)
+}
+
+// {taskLogRootDir}/{TtaskLogFileName}.log
+func (sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
+	fileName := TaskLogFileName(dateTime.UTC())
+	return filepath.Join(
+		sf.taskLogRootDir(projectId, taskId),
+		fileName,
+	)
+}
+
+// Helper function to get today's log file path
+func (sf *ScriptFlow) taskTodayLogFilePath(projectId string, taskId string) string {
+	return sf.taskLogFilePathDate(projectId, taskId, time.Now())
+}
+
+func (sf *ScriptFlow) createLogFile(projectId string, taskId string) (*os.File, error) {
+	filePath := sf.taskTodayLogFilePath(projectId, taskId)
+	logDir := filepath.Dir(filePath)
+	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
+		return nil, NewFailedCreateLogFileDirectoryError()
+	}
+
+	if _, err := os.Stat(filePath); err == nil {
+		return os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	}
+	return os.Create(filePath)
 }

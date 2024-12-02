@@ -59,10 +59,14 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 func (sf *ScriptFlow) setupScheduler() {
 	// schedule system tasks
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		// schedule NodeStatus task to run every 30 seconds
+		// schedule JobCheckNodeStatus task to run every 30 seconds
 		sf.app.Logger().Info("scheduling system tasks")
 		_, _ = sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
-			go sf.JobNodeStatus()
+			go sf.JobCheckNodeStatus()
+		})
+		// schedule JobRemoveOutdatedLogs task
+		_, _ = sf.scheduler.Tag("system-task").SingletonMode().Cron("10 0 * * *").Do(func() {
+			go sf.JobRemoveOutdatedLogs()
 		})
 		return e.Next()
 	})
