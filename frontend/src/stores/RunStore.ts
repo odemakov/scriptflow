@@ -1,5 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
+import { RecordSubscription } from "pocketbase";
 
 import { getPocketBaseInstance } from "./AuthStore";
 
@@ -14,7 +15,7 @@ export const useRunStore = defineStore("runs", () => {
   const getRun = computed(() => run.value);
 
   // methods
-  async function fetchTaskLastRuns(taskId: string, limit: number = 100) {
+  async function fetchLastRuns(taskId: string, limit: number = 100) {
     const records = await pb
       .collection(CCollectionName.runs)
       .getList<IRun>(1, limit, {
@@ -33,29 +34,64 @@ export const useRunStore = defineStore("runs", () => {
       });
     run.value = record;
   }
-  function updateStoreRun(taskId: string, updatedRun: IRun) {
-    lastRuns.value[taskId] = lastRuns.value[taskId].map((run) => {
-      if (run.id === updatedRun.id) {
-        // update existing one
-        return {
-          ...run,
-          ...updatedRun,
-        };
+  function subscribe() {
+    pb.collection(CCollectionName.runs).subscribe(
+      "*",
+      (data: RecordSubscription) => {
+        if (
+          data.record?.collectionName == CCollectionName.runs &&
+          (data.action == "create" || data.action == "update")
+        ) {
+          const run = {
+            id: data.record.id,
+            created: data.record.created,
+            updated: data.record.updated,
+            status: data.record.status,
+            command: data.record.command,
+            connection_error: data.record.connection_error,
+            exit_code: data.record.exit_code,
+          } as IRun;
+          if (data.action == "update") {
+            _updateStoreRun(data.record.task, run);
+          } else if (data.action == "create") {
+            _addStoreRun(data.record.task, run);
+          }
+        }
       }
-      return run;
-    });
+    );
   }
-  function addStoreRun(taskId: string, newRun: IRun) {
-    lastRuns.value[taskId].unshift(newRun);
-    lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
+  function unsubscribe() {
+    pb.collection(CCollectionName.runs).unsubscribe();
+  }
+
+  // private methods
+  function _updateStoreRun(taskId: string, updatedRun: IRun) {
+    if (taskId in lastRuns.value) {
+      lastRuns.value[taskId] = lastRuns.value[taskId].map((run) => {
+        if (run.id === updatedRun.id) {
+          // update existing one
+          return {
+            ...run,
+            ...updatedRun,
+          };
+        }
+        return run;
+      });
+    }
+  }
+  function _addStoreRun(taskId: string, newRun: IRun) {
+    if (taskId in lastRuns.value) {
+      lastRuns.value[taskId].unshift(newRun);
+      lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
+    }
   }
 
   return {
     getLastRuns,
     getRun,
-    fetchTaskLastRuns,
+    subscribe,
+    unsubscribe,
+    fetchLastRuns,
     fetchRun,
-    updateStoreRun,
-    addStoreRun,
   };
 });

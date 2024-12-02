@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, computed } from 'vue';
+import { onUnmounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router'
 import { useRunStore } from '@/stores/RunStore';
 import { useToastStore } from '@/stores/ToastStore';
@@ -27,7 +27,8 @@ const gotoRun = (run: IRun) => {
 
 watch(() => props.task, async () => {
   try {
-    await useRuns.fetchTaskLastRuns(props.task.id)
+    await useRuns.fetchLastRuns(props.task.id)
+    useRuns.subscribe()
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
@@ -35,6 +36,11 @@ watch(() => props.task, async () => {
     )
   }
 })
+
+onUnmounted(() => {
+  useRuns.unsubscribe()
+})
+
 </script>
 
 <template>

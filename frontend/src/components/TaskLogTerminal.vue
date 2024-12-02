@@ -68,6 +68,10 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
   term.dispose();
+  // Close the WebSocket connection if it exists
+  if (webSocket) {
+    webSocket.close();
+  }
 });
 
 </script>

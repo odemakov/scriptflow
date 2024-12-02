@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { RecordSubscription } from "pocketbase";
 
-import { getPocketBaseInstance } from "@/stores/AuthStore";
 import { useToastStore } from '@/stores/ToastStore';
 import { useTaskStore } from '@/stores/TaskStore';
 import { useRunStore } from '@/stores/RunStore';
@@ -17,7 +15,6 @@ import PageTitle from '@/components/PageTitle.vue';
 import { useProjectStore } from '@/stores/ProjectStore';
 import { IBack } from '@/types';
 
-const pb = getPocketBaseInstance()
 const router = useRouter()
 const route = useRoute()
 const useToasts = useToastStore()
@@ -56,71 +53,33 @@ const fetchProject = async () => {
 const fetchTasksAndSubsribe = async () => {
   try {
     await useTasks.fetchTasks(projectSlug)
+    useTasks.subscribe()
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
       'error',
     )
   }
-  pb.collection(CCollectionName.tasks).subscribe(
-    "*",
-    (data: RecordSubscription) => {
-      if (data.record?.collectionName == CCollectionName.tasks && (data.action == "create" || data.action == "update")) {
-        useTasks.updateStoredTask(data.record.id, {
-          id: data.record.id,
-          updated: data.record.updated,
-          name: data.record.name,
-          command: data.record.command,
-          schedule: data.record.schedule,
-          node: data.record.node,
-          project: data.record.project,
-          active: data.record.active,
-          prepend_datetime: data.record.prepend_datetime,
-        });
-      }
-    }
-  );
 }
 
-const fetchTaskLastRunsAndSubscribe = async () => {
+const fetchLastRunsAndSubscribe = async () => {
   try {
     for (const task of tasks.value) {
-      await useRuns.fetchTaskLastRuns(task.id, 1)
+      await useRuns.fetchLastRuns(task.id, 1)
     }
+    useRuns.subscribe()
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
       'error',
     )
   }
-  pb.collection(CCollectionName.runs).subscribe(
-    "*",
-    (data: RecordSubscription) => {
-      if (data.record?.collectionName == CCollectionName.runs && (data.action == "create" || data.action == "update")) {
-        const run = {
-          id: data.record.id,
-          updated: data.record.updated,
-          status: data.record.status,
-          command: data.record.command,
-          connection_error: data.record.connection_error,
-          exit_code: data.record.exit_code,
-        } as IRun;
-        if (data.action == "update") {
-          useRuns.updateStoreRun(data.record.task, run)
-        } else if (data.action == "create") {
-          run.created = new Date().toISOString()
-          run.updated = run.created
-          useRuns.addStoreRun(data.record.task, run)
-        }
-      }
-    }
-  );
 }
 
 onMounted(async () => {
-  // unsubscribe from runs collection
-  pb.collection(CCollectionName.runs).unsubscribe()
-  pb.collection(CCollectionName.tasks).unsubscribe()
+  // unsubscribe from runs collection just in case
+  useTasks.unsubscribe()
+  useRuns.unsubscribe()
 
   // fetch project
   await fetchProject()
@@ -129,12 +88,12 @@ onMounted(async () => {
   await fetchTasksAndSubsribe()
 
   // for each task fetch last run
-  await fetchTaskLastRunsAndSubscribe()
+  await fetchLastRunsAndSubscribe()
 })
 
 onUnmounted(() => {
-  pb.collection(CCollectionName.runs).unsubscribe()
-  pb.collection(CCollectionName.tasks).unsubscribe()
+  useTasks.unsubscribe()
+  useRuns.unsubscribe()
 })
 
 const gotoTask = (taskSlug: string) => {
