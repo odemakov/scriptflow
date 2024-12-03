@@ -34,31 +34,36 @@ const router = createRouter({
               },
             },
             {
-              name: "task",
-              path: ":taskSlug/history",
-              component: TaskView,
-              meta: {
-                title: "Task",
-                requireAuth: true,
-              },
-            },
-            {
-              name: "task-log",
-              path: ":taskSlug/log",
-              component: TaskLogView,
-              meta: {
-                title: "Task",
-                requireAuth: true,
-              },
-            },
-            {
-              path: "run/:id",
-              name: "run",
-              component: RunView,
-              meta: {
-                title: "Run",
-                requireAuth: true,
-              },
+              path: "",
+              children: [
+                {
+                  name: "task",
+                  path: ":taskSlug/history",
+                  component: TaskView,
+                  meta: {
+                    title: "Task",
+                    requireAuth: true,
+                  },
+                },
+                {
+                  name: "task-log",
+                  path: ":taskSlug/log",
+                  component: TaskLogView,
+                  meta: {
+                    title: "Task",
+                    requireAuth: true,
+                  },
+                },
+                {
+                  path: ":taskSlug/:id",
+                  name: "run",
+                  component: RunView,
+                  meta: {
+                    title: "Run",
+                    requireAuth: true,
+                  },
+                },
+              ],
             },
           ],
         },

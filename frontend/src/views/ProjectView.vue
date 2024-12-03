@@ -13,7 +13,8 @@ import RunStatus from '@/components/RunStatus.vue';
 import RunTimeAgo from '@/components/RunTimeAgo.vue';
 import PageTitle from '@/components/PageTitle.vue';
 import { useProjectStore } from '@/stores/ProjectStore';
-import { IBack } from '@/types';
+import { ICrumb } from '@/types';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 
 const router = useRouter()
 const route = useRoute()
@@ -23,13 +24,7 @@ const useTasks = useTaskStore()
 const useRuns = useRunStore()
 
 const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
-const back = {
-  to: () => router.push({ name: 'home' }),
-  label: 'back to projects'
-} as IBack
-
 const tasks = computed(() => useTasks.getTasks)
-const project = computed(() => useProjects.getProject)
 const lastRuns = computed(() => useRuns.getLastRuns)
 const taskLastRun = (taskId: string) => {
   if (taskId in lastRuns.value && lastRuns.value[taskId].length > 0) {
@@ -125,10 +120,15 @@ const toggleTaskActive = async (taskId: string) => {
   }
 }
 
+const crumbs = [
+  { label: projectSlug } as ICrumb,
+]
+
 </script>
 
 <template>
-  <PageTitle :title="`&lt;${project.name}&gt; project`" :back="back" />
+  <Breadcrumbs :crumbs="crumbs" />
+  <PageTitle title="Project tasks" />
 
   <div class="overflow-x-auto">
     <table class="table table-xs">

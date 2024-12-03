@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { watch, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useRunStore } from '@/stores/RunStore';
 import { useToastStore } from '@/stores/ToastStore';
-import { emptyBack, IBack } from '@/types';
+import { ICrumb } from '@/types';
 import PageTitle from '@/components/PageTitle.vue'
 import RunCard from '@/components/RunCard.vue';
 import RunLogTerminal from '@/components/RunLogTerminal.vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 
 const useToasts = useToastStore()
 const useRuns = useRunStore()
@@ -15,9 +16,9 @@ const route = useRoute()
 const router = useRouter()
 const runId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
 const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
+const taskSlug = Array.isArray(route.params.taskSlug) ? route.params.taskSlug[0] : route.params.taskSlug
 
 const run = computed(() => useRuns.getRun)
-let back = emptyBack
 
 onMounted(async () => {
   try {
@@ -30,19 +31,17 @@ onMounted(async () => {
   }
 })
 
-watch(run, (newRun) => {
-  if (newRun.id) {
-    back = {
-      to: () => router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: newRun.expand?.task.slug } }),
-      label: 'back to task'
-    } as IBack
-  }
-}, { immediate: true })
+const crumbs = [
+  { to: () => router.push({ name: 'project', params: { projectSlug: projectSlug } }), label: projectSlug } as ICrumb,
+  { to: () => router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } }), label: taskSlug } as ICrumb,
+  { label: runId } as ICrumb,
+]
 
 </script>
 
 <template>
-  <PageTitle :title="`&lt;${run.id}&gt; run`" :back="back" />
+  <Breadcrumbs :crumbs="crumbs" />
+  <PageTitle title="Run log" />
   <div class="flex flex-row gap-4">
     <div class="basis-1/4">
       <RunCard :run="run" />

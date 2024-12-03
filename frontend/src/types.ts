@@ -56,6 +56,11 @@ export let emptyBack = {
   label: "",
 } as IBack;
 
+export interface ICrumb {
+  to: () => void;
+  label: string;
+}
+
 export interface INode {
   id: string;
   collectionName: string;

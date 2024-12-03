@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { watch, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useTaskStore } from '@/stores/TaskStore';
 import { useToastStore } from '@/stores/ToastStore';
-import { emptyBack, IBack } from '@/types';
+import { ICrumb } from '@/types';
 import PageTitle from '@/components/PageTitle.vue'
 import TaskCard from '@/components/TaskCard.vue';
 import TaskLogTerminal from '@/components/TaskLogTerminal.vue';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 
 const useToasts = useToastStore()
 const useTasks = useTaskStore()
@@ -17,7 +18,6 @@ const taskSlug = Array.isArray(route.params.taskSlug) ? route.params.taskSlug[0]
 const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
 
 const task = computed(() => useTasks.getTask)
-let back = emptyBack
 
 onMounted(async () => {
   try {
@@ -34,19 +34,16 @@ const gotoTaskHistory = () => {
   router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } })
 }
 
-watch(task, (newTask) => {
-  if (newTask.id) {
-    back = {
-      to: () => router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } }),
-      label: 'back to history'
-    } as IBack
-  }
-}, { immediate: true })
+const crumbs = [
+  { to: () => router.push({ name: 'project', params: { projectSlug: projectSlug } }), label: projectSlug } as ICrumb,
+  { label: taskSlug } as ICrumb,
+]
 
 </script>
 
 <template>
-  <PageTitle :title="`&lt;${task.name}&gt; task current log`" :back="back" />
+  <Breadcrumbs :crumbs="crumbs" />
+  <PageTitle title="Task today's log" />
   <div class="flex flex-row gap-4">
     <div class="basis-1/4">
       <TaskCard :task="task" />
