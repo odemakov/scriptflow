@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -61,13 +62,17 @@ func (sf *ScriptFlow) setupScheduler() {
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// schedule JobCheckNodeStatus task to run every 30 seconds
 		sf.app.Logger().Info("scheduling system tasks")
-		_, _ = sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
+		if _, err := sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
 			go sf.JobCheckNodeStatus()
-		})
+		}); err != nil {
+			sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
+		}
 		// schedule JobRemoveOutdatedLogs task
-		_, _ = sf.scheduler.Tag("system-task").SingletonMode().Cron("10 0 * * *").Do(func() {
+		if _, err := sf.scheduler.Tag("system-task").SingletonMode().Cron("10 0 * * *").Do(func() {
 			go sf.JobRemoveOutdatedLogs()
-		})
+		}); err != nil {
+			sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("err", err))
+		}
 		return e.Next()
 	})
 
