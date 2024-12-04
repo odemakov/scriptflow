@@ -108,20 +108,22 @@ func (sf *ScriptFlow) setupScheduler() {
 	})
 
 	sf.app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
-		// Stop scheduler on app stop
-		// In case of long running tasks it will wait for them to finish
-		// Not sure I need this
-		// sf.app.Logger().Info("stopping Scheduler")
-		// sf.scheduler.Stop()
+		// make sure app is bootstrapped before marking tasks as interrupted
+		if sf.app.IsBootstrapped() {
+			// Stop scheduler on app stop
+			// In case of long running tasks it will wait for them to finish
+			// Not sure I need this
+			// sf.app.Logger().Info("stopping Scheduler")
+			// sf.scheduler.Stop()
 
-		// mark all running tasks as interrupted, if any
-		sf.app.Logger().Info("marking all running tasks as interrupted")
-		sf.MarkAllRunningTasksAsInterrupted()
+			// mark all running tasks as interrupted, if any
+			sf.app.Logger().Info("marking all running tasks as interrupted")
+			sf.MarkAllRunningTasksAsInterrupted()
 
-		// Close all ssh connections thus terminate all running tasks, if any
-		// sf.app.Logger().Info("stoping SSH Pool")
-		// sf.sshPool.ClosePool()
-
+			// Close all ssh connections thus terminate all running tasks, if any
+			// sf.app.Logger().Info("stoping SSH Pool")
+			// sf.sshPool.ClosePool()
+		}
 		return e.Next()
 	})
 }
