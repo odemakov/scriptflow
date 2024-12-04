@@ -41,7 +41,7 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	}
 
 	runCfg := &sshrun.RunConfig{
-		PrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
+		DefaultPrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
 	}
 	sshPool := sshrun.NewPool(runCfg)
 
@@ -91,10 +91,14 @@ func (sf *ScriptFlow) setupScheduler() {
 		return e.Next()
 	})
 
-	// Update exsisitng task
 	sf.app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		// Update exsisitng task
 		if e.Record.Collection().Name == CollectionTasks {
 			go sf.ScheduleTask(e.Record)
+		}
+		// Close node connection when node is updated, so that checkNodeStatus can attempt to reconnect with new params
+		if e.Record.Collection().Name == CollectionNodes {
+			sf.sshPool.Put(e.Record.GetString("host"))
 		}
 		return e.Next()
 	})

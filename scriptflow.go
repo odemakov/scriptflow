@@ -125,15 +125,9 @@ func (sf *ScriptFlow) runTask(taskId string) {
 	}
 	defer logFile.Close()
 
-	// Configure SSH and run the command
-	sshCfg := &sshrun.SSHConfig{
-		User: node.GetString("username"),
-		Host: node.GetString("host"),
-	}
-
 	// Execute command and process output
 	sf.app.Logger().Info("execute task", taskAttrs(task), nodeAttrs(node))
-	exitCode, err := sf.executeCommand(sshCfg, task, run, logFile)
+	exitCode, err := sf.executeCommand(nodeSSHConfig(node), task, run, logFile)
 	if err != nil {
 		switch e := err.(type) {
 		case *ScriptFlowError:
@@ -212,13 +206,7 @@ func (sf *ScriptFlow) createRunRecord(node *core.Record, task *core.Record) (*co
 	if err := sf.app.Save(run); err != nil {
 		return nil, fmt.Errorf("failed to save run record: %w", err)
 	}
-
-	// fetch created run record, otehrwise it won't update autoupdated fields
-	returnRun, err := sf.app.FindRecordById(CollectionRuns, run.Id)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find creted run: %w", err)
-	}
-	return returnRun, nil
+	return run, nil
 }
 
 func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record, run *core.Record, logFile *os.File) (int, error) {
@@ -252,6 +240,14 @@ func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record
 	)
 }
 
+func nodeSSHConfig(node *core.Record) *sshrun.SSHConfig {
+	return &sshrun.SSHConfig{
+		User:       node.GetString("username"),
+		Host:       node.GetString("host"),
+		PrivateKey: node.GetString("private_key"),
+	}
+}
+
 // JobNodeStatus checks all the nodes and marks them as online or offline
 func (sf *ScriptFlow) JobCheckNodeStatus() {
 	// Acquire lock to ensure scheduler access is thread-safe
@@ -268,14 +264,10 @@ func (sf *ScriptFlow) JobCheckNodeStatus() {
 	for _, node := range nodes {
 		sf.app.Logger().Debug("check node status", nodeAttrs(node))
 		go func(node *core.Record) {
-			sshCfg := &sshrun.SSHConfig{
-				User: node.GetString("username"),
-				Host: node.GetString("host"),
-			}
 			oldStatus := node.GetString("status")
 			var newStatus string
 			// with empty callback functions, we just check if the command runs successfully
-			_, err := sf.sshPool.Run(sshCfg, "uptime", func(stdout string) {}, func(stderr string) {})
+			_, err := sf.sshPool.Run(nodeSSHConfig(node), "uptime", func(stdout string) {}, func(stderr string) {})
 			if err != nil {
 				sf.app.Logger().Error("failed to check node status", nodeAttrs(node), slog.Any("error", err))
 				newStatus = NodeStatusOffline
