@@ -312,7 +312,7 @@ func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 	for _, project := range projects {
 		sf.app.Logger().Info("start remove outdated files for project", projectAttrs(project))
 
-		logsMaxDays, err := GetProjectConfigAttr(project, "logsMaxDays", LogsMaxDays)
+		logsMaxDays, err := GetCollectionConfigAttr(project, "logsMaxDays", LogsMaxDays)
 		if err != nil {
 			sf.app.Logger().Error("failed to get project's logsMaxDays attr", slog.Any("error", err))
 			continue

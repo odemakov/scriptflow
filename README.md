@@ -1,31 +1,63 @@
-# Scriptflow is yet another script framework
+# Scriptflow is yet anothother Distributed Command Scheduler with web interface
 
-**Scriptflow** is a lightweight, one-file solution designed to simplify script management, execution, monitoring and alerting(TODO). It provides an easy-to-use interface for running scripts, collecting and viewing logs and exit statuses. Based on PocketBase v0.23 with simple Vue app as UI embeded in sinlge binary file.
+**ScriptFlow** is a Distributed Command Scheduler designed to manage and execute commands across multiple nodes with customizable scheduling. It handles logs efficiently and includes notifications to keep users updated on task statuses and results.
+
+ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](htts://pocketbase.io) framework. The entire system is contained in a single file, with only two additional folders: one for the database and one for logs. This simplicity makes setup quick and ensures users can manage and monitor tasks without the hassle of complex systems.
+
+# Existing systems
+
+- **Cron**: A traditional Unix-based job scheduler, Cron is powerful but lacks centralized management, web interface, and notification capabilities.
+- **Jenkins**: Primarily a CI/CD tool, Jenkins can schedule tasks across nodes but is heavyweight and complex to set up for simpler scheduling needs.
+- **Airflow**: Apache Airflow excels at orchestrating workflows but requires significant resources and knowledge to install and manage.
+- **Ansible**: Often used for configuration management and ad-hoc command execution, it doesn’t focus on recurring job scheduling.
+- **Kubernetes CronJobs**: Built for containerized environments, it’s complex and overkill for simpler scheduling needs outside Kubernetes.
 
 ## Features
 
-- Simple script execution and monitoring
-- Log collection and management
-- Exit status tracking
-- Easy to install and use
-- Web-based interface
-- REST API
-
-## Architecture
-
-**Scriptflow** consists of two main components:
-
-- Backend: Built on top of [Pocketbase](https://pocketbase.io/) for robust data storage and API
-- Frontend: Modern UI built with [Vue.js](https://vuejs.org/)
+- easy script execution and monitoring
+- centralized log collection and management
+- real-time tracking of task statuses and outcomes
+- quick and hassle-free installation
+- user-friendly web interface
+- simple REST-ish API
 
 ## Quick Start
 
-TODO
+Create project directory `cd /root && mkdir scriptflow && cd scriptflow`
 
-### Using Docker (Recommended)
+Download release `wget https://github.com/odemakov/scriptflow/releases/download/v0.0.4/scriptflow_Linux_x86_64.tar.gz`
 
-1. Clone the repository: `git clone https://github.com/odemakov/scriptflow`
-2. Build `cd scriptflow && make build && make extract`
+Extract it `tar -xzf scriptflow_Linux_x86_64.tar.gz`
+
+Run `./scriptflow --http 0.0.0.0:8090 --dev serve`
+
+## Run as system service
+
+Download and extract 
+Create `/etc/systemd/system/scriptflow.service` file
+
+```
+[Unit]
+Description = scriptflow
+
+[Service]
+Type           = simple
+User           = root
+Group          = root
+LimitNOFILE    = 4096
+Restart        = always
+RestartSec     = 5s
+StandardOutput = append:/var/log/scriptflow-out.log
+StandardError  = append:/var/log/scriptflow-err.log
+ExecStart      = /root/scriptflow/scriptflow --http 0.0.0.0:8090 serve
+
+[Install]
+WantedBy = multi-user.target
+```
+
+Enable and restart service
+
+`systemctl daemon-reload && systemctl enable scriptflow.service && systemctl status scriptflow.service`
 
 ### Cron scheduling
 

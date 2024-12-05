@@ -88,6 +88,10 @@ func (sf *ScriptFlow) setupScheduler() {
 		if e.Record.Collection().Name == CollectionTasks {
 			go sf.ScheduleTask(e.Record)
 		}
+		// init notification for run
+		if e.Record.Collection().Name == CollectionRuns {
+			sf.ProcessRunNotification(e.Record)
+		}
 		return e.Next()
 	})
 
@@ -99,6 +103,10 @@ func (sf *ScriptFlow) setupScheduler() {
 		// Close node connection when node is updated, so that checkNodeStatus can attempt to reconnect with new params
 		if e.Record.Collection().Name == CollectionNodes {
 			sf.sshPool.Put(e.Record.GetString("host"))
+		}
+		// init notification for run
+		if e.Record.Collection().Name == CollectionRuns {
+			sf.ProcessRunNotification(e.Record)
 		}
 		return e.Next()
 	})

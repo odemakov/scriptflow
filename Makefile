@@ -1,6 +1,6 @@
 # Makefile
 
-.PHONY: build dev test clean extract
+.PHONY: dev create_migration_snapshot stop test clean lintgo
 
 DOCKER_COMPOSE=docker compose
 DOCKER=docker

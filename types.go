@@ -8,18 +8,22 @@ import (
 	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 const (
-	CollectionProjects = "projects"
-	CollectionTasks    = "tasks"
-	CollectionRuns     = "runs"
-	CollectionNodes    = "nodes"
-	NodeStatusOnline   = "online"
-	NodeStatusOffline  = "offline"
-	SchedulePeriod     = 60 // max delay in seconds for tasks with @every schedule
-	LogSeparator       = "[%s] [scriptflow] run %s"
-	LogsMaxDays        = 90
+	CollectionProjects      = "projects"
+	CollectionTasks         = "tasks"
+	CollectionRuns          = "runs"
+	CollectionNodes         = "nodes"
+	CollectionChannels      = "channels"
+	CollectionSubscriptions = "subscriptions"
+	CollectionNotifications = "notifications"
+	NodeStatusOnline        = "online"
+	NodeStatusOffline       = "offline"
+	SchedulePeriod          = 60 // max delay in seconds for tasks with @every schedule
+	LogSeparator            = "[%s] [scriptflow] run %s"
+	LogsMaxDays             = 90
 )
 
 const (
@@ -54,18 +58,43 @@ type ScriptFlow struct {
 // 	Updated  types.DateTime `db:"updated" json:"updated"`
 // }
 
-// type Task struct {
-// 	Id              string `json:"id"`
-// 	Name            string `json:"name"`
-// 	Command         string `json:"command"`
-// 	Schedule        string `json:"schedule"`
-// 	NodeId          string `json:"node"`
-// 	ProjectId       string `json:"project"`
-// 	Active          bool `json:"active"`
-// 	PrependDateTime bool `json:"prependDateTime"`
-// 	Created         types.DateTime `db:"created" json:"created"`
-// 	Updated         types.DateTime `db:"updated" json:"updated"`
-// }
+type TaskItem struct {
+	Id              string         `json:"id"`
+	Name            string         `json:"name"`
+	Command         string         `json:"command"`
+	Schedule        string         `json:"schedule"`
+	NodeId          string         `json:"node"`
+	ProjectId       string         `json:"project"`
+	Active          bool           `json:"active"`
+	PrependDateTime bool           `json:"prependDateTime"`
+	Created         types.DateTime `db:"created" json:"created"`
+	Updated         types.DateTime `db:"updated" json:"updated"`
+}
+
+type RunItem struct {
+	Id              string         `json:"id"`
+	Task            string         `json:"task"`
+	Status          string         `json:"status"`
+	Host            string         `json:"host"`
+	Command         string         `json:"command"`
+	ConnectionError string         `json:"connection_error"`
+	ExitCode        int            `json:"exitCode"`
+	Created         types.DateTime `db:"created" json:"created"`
+	Updated         types.DateTime `db:"updated" json:"updated"`
+}
+
+type SubscriptionItem struct {
+	Id        string                  `json:"id"`
+	Name      string                  `json:"name"`
+	Task      string                  `json:"task"`
+	Channel   string                  `json:"channel"`
+	Threshold int                     `json:"threshold"`
+	Active    bool                    `json:"active"`
+	Events    types.JSONArray[string] `db:"events" json:"events"`
+	Notified  types.DateTime          `db:"notified" json:"Notified"`
+	Created   types.DateTime          `db:"created" json:"created"`
+	Updated   types.DateTime          `db:"updated" json:"updated"`
+}
 
 // return node attributes for logging
 func nodeAttrs(node *core.Record) slog.Attr {
@@ -99,12 +128,12 @@ type ProjectConfig struct {
 	LogsMaxDays *int `json:"logsMaxDays"`
 }
 
-// GetProjectConfig retrieves a specific attribute from the project's "config" JSON field.
+// GetProjectConfig retrieves a specific attribute from the row "config" JSON field.
 // Returns the value of the attribute if found, or the defaultValue if the attribute is not present or invalid.
-func GetProjectConfigAttr(project *core.Record, attr string, defaultValue interface{}) (interface{}, error) {
-	// Retrieve the raw "config" field from the project
+func GetCollectionConfigAttr(row *core.Record, attr string, defaultValue interface{}) (interface{}, error) {
+	// Retrieve the raw "config" field from the row
 	var config ProjectConfig
-	err := project.UnmarshalJSONField("config", &config)
+	err := row.UnmarshalJSONField("config", &config)
 	if err != nil {
 		return defaultValue, nil // Return defaultValue if config cannot be parsed
 	}
