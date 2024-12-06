@@ -60,6 +60,9 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 func (sf *ScriptFlow) setupScheduler() {
 	// schedule system tasks
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		// mark all started tasks as interrupted, if any
+		sf.MarkAllRunningTasksAsInterrupted("app-started")
+
 		// schedule JobCheckNodeStatus task to run every 30 seconds
 		sf.app.Logger().Info("scheduling system tasks")
 		if _, err := sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
@@ -67,24 +70,22 @@ func (sf *ScriptFlow) setupScheduler() {
 		}); err != nil {
 			sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
 		}
+
 		// schedule JobRemoveOutdatedLogs task
 		if _, err := sf.scheduler.Tag("system-task").SingletonMode().Cron("10 0 * * *").Do(func() {
 			go sf.JobRemoveOutdatedLogs()
 		}); err != nil {
 			sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("err", err))
 		}
-		return e.Next()
-	})
 
-	// Schedule existing tasks
-	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		sf.app.Logger().Info("scheduling user tasks")
+		// Schedule existing tasks
+		sf.app.Logger().Info("scheduling existing tasks")
 		sf.scheduleActiveTasks()
 		return e.Next()
 	})
 
-	// Schedule new tasks
 	sf.app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		// Schedule new tasks
 		if e.Record.Collection().Name == CollectionTasks {
 			go sf.ScheduleTask(e.Record)
 		}
@@ -130,7 +131,7 @@ func (sf *ScriptFlow) setupScheduler() {
 
 			// mark all running tasks as interrupted, if any
 			sf.app.Logger().Info("marking all running tasks as interrupted")
-			sf.MarkAllRunningTasksAsInterrupted()
+			sf.MarkAllRunningTasksAsInterrupted("app-terminated")
 
 			// Close all ssh connections thus terminate all running tasks, if any
 			// sf.app.Logger().Info("stoping SSH Pool")
