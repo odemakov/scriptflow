@@ -12,7 +12,7 @@ ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](
 - **Ansible**: Often used for configuration management and ad-hoc command execution, it doesn’t focus on recurring job scheduling.
 - **Kubernetes CronJobs**: Built for containerized environments, it’s complex and overkill for simpler scheduling needs outside Kubernetes.
 
-## Features
+# Features
 
 - easy script execution and monitoring
 - centralized log collection and management
@@ -21,9 +21,9 @@ ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](
 - user-friendly web interface
 - simple REST-ish API
 
-## Quick Start
+# Quick Start
 
-Create project directory `cd /root && mkdir scriptflow && cd scriptflow`
+Create project directory `mkdir scriptflow && cd scriptflow`
 
 Download release `wget https://github.com/odemakov/scriptflow/releases/download/v0.0.4/scriptflow_Linux_x86_64.tar.gz`
 
@@ -31,9 +31,9 @@ Extract it `tar -xzf scriptflow_Linux_x86_64.tar.gz`
 
 Run `./scriptflow --http 0.0.0.0:8090 --dev serve`
 
-## Run as system service
+# Run as system service
 
-Download and extract 
+Download and extract
 Create `/etc/systemd/system/scriptflow.service` file
 
 ```
@@ -57,13 +57,13 @@ WantedBy = multi-user.target
 
 Enable and restart service
 
-`systemctl daemon-reload && systemctl enable scriptflow.service && systemctl status scriptflow.service`
+`systemctl daemon-reload && systemctl enable scriptflow.service && systemctl start scriptflow.service`
 
-### Cron scheduling
+# Cron scheduling
 
 Task.schedule field parsed by [robfig/cron/v3](https://pkg.go.dev/github.com/robfig/cron/v3) library
 
-### Development
+# Development
 
 Development environment completely inside Docker with autorestart backend and frotend apps on file changes.
 
