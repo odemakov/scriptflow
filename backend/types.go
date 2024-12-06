@@ -66,7 +66,7 @@ type TaskItem struct {
 	NodeId          string         `json:"node"`
 	ProjectId       string         `json:"project"`
 	Active          bool           `json:"active"`
-	PrependDateTime bool           `json:"prependDateTime"`
+	PrependDateTime bool           `json:"prepend_datetime"`
 	Created         types.DateTime `db:"created" json:"created"`
 	Updated         types.DateTime `db:"updated" json:"updated"`
 }
