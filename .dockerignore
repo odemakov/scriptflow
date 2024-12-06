@@ -3,6 +3,10 @@ frontend/dist
 frontend/.env*
 frontend/.env
 frontend/.env.*
+backend/tmp
+backend/pb_data
+backend/sf_data
+backend/dist
 
 .builds
 .data
@@ -10,5 +14,3 @@ frontend/.env.*
 .gitignore
 
 .env.production
-tmp
-scriptflow

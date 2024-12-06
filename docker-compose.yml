@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile
       target: dev-backend
     volumes:
-      - ./:/app
+      - ./backend:/app
       - ./.data/pb_data:/app/pb_data
       - ./.data/sf_logs:/app/sf_logs
     ports:

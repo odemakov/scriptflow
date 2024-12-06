@@ -7,16 +7,18 @@ dist: .builds
 
 before:
   hooks:
-    - go mod tidy
+    - cd backend && go mod tidy
+    - cp -r frontend/dist backend/
 
 builds:
   - binary: scriptflow
+    dir: backend
     env:
       - CGO_ENABLED=0
     flags:
       - -tags=production
     goos:
-      - linux
+      #- linux
       - darwin
     goarch:
       - amd64

@@ -23,7 +23,7 @@ stop:
 # Run unit tests for frontend and backend
 test: _test_backend _test_frontend
 _test_backend:
-	$(DOCKER) run --rm -v $(PWD):/app -w /app golang:1.23-alpine go test ./...
+	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golang:1.23-alpine go test ./...
 _test_frontend:
 	$(DOCKER) build --no-cache --target builder-frontend -t $(PROJECT_NAME):builder-frontend .
 	$(DOCKER) run --rm $(PROJECT_NAME):builder-frontend npm run test
@@ -33,4 +33,4 @@ clean:
 	$(DOCKER_COMPOSE) down --volumes --remove-orphans
 
 lintgo:
-	$(DOCKER) run --rm -v $(PWD):/app -w /app golangci/golangci-lint:v1.62.2 golangci-lint run -c ./golangci.yml ./...
+	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golangci/golangci-lint:v1.62.2 golangci-lint run -c ./golangci.yml ./...

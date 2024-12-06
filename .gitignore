@@ -2,5 +2,8 @@
 .data
 .env.production
 frontend/.env
-scriptflow
-tmp
+backend/scriptflow
+backend/tmp
+backend/pb_data
+backend/sf_data
+backend/dist
