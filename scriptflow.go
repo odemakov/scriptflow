@@ -30,24 +30,19 @@ func (sf *ScriptFlow) Start() {
 	sf.scheduler.StartAsync()
 }
 
-func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted() {
+func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {
 	// find all active runs
-	runs, err := sf.app.FindAllRecords(
+	_, err := sf.app.DB().Update(
 		CollectionRuns,
+		dbx.Params{
+			"status":           RunStatusInterrupted,
+			"connection_error": errorMsg,
+		},
 		dbx.HashExp{"status": RunStatusStarted},
-	)
-	if err != nil {
-		sf.app.Logger().Error("failed to find started runs", slog.Any("error", err))
-		return
-	}
+	).Execute()
 
-	// mark them as interrupted
-	for _, run := range runs {
-		run.Set("status", RunStatusInterrupted)
-		run.Set("error", "scriptflow interrupted")
-		if err := sf.app.Save(run); err != nil {
-			sf.app.Logger().Error("failed to save run", slog.Any("error", err))
-		}
+	if err != nil {
+		sf.app.Logger().Error("failed to mark running tasks as interrupted", slog.Any("err", err))
 	}
 }
 
