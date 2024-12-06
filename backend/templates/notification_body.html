@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Template</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+      .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border: 1px solid #dddddd;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .header {
+        color: black;
+        padding: 10px;
+        text-align: center;
+      }
+      .content {
+        padding: 10px;
+      }
+      .footer {
+        background-color: #f1f1f1;
+        text-align: center;
+        padding: 6px;
+        font-size: 12px;
+        color: #777777;
+      }
+      .completed {
+        background-color: #83cba9;
+      }
+      .error{
+        background-color: #ff9ea3;
+      }
+      .internal_error {
+        background-color: #ff9ea3;
+      }
+      .interrupted {
+        background-color: #ffd760;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 10px;
+        border: 1px solid #dddddd;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header {{.RunStatus}}">
+        <h1>{{.Header}}</h1>
+      </div>
+      <div class="content">
+        <h2>{{.Greeting}}</h2>
+        <p>
+          Task <a href="{{.TaskUrl}}" targer="_blank">{{.TaskName}}</a> finished
+          with status <a href="{{.RunUrl}}" target="_blank">{{.RunStatus}}</p>
+          <table>
+            {{range .Items}}
+            {{if eq .Name "Status"}}
+            <tr class="{{.Description}}">
+              <td>{{.Name}}</td>
+              <td>{{.Description}}</td>
+            </tr>
+            {{else}}
+            <tr>
+              <td>{{.Name}}</td>
+              <td>{{.Description}}</td>
+            </tr>
+            {{end}}
+            {{end}}
+          </table>
+        </div>
+        <div class="footer"></div>
+      </div>
+    </body>
+  </html>

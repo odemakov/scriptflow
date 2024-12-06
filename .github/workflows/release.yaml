@@ -48,6 +48,7 @@ jobs:
 
       - name: Run tests
         run: go test ./...
+        working-directory: ./backend
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -55,5 +56,6 @@ jobs:
           distribution: goreleaser
           version: '~> v2'
           args: release --clean ${{ env.flags }}
+          workdir: ./backend
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,4 +1,4 @@
-# Scriptflow is yet anothother Distributed Command Scheduler with web interface
+# Scriptflow is a Distributed Command Scheduler with web interface
 
 **ScriptFlow** is a Distributed Command Scheduler designed to manage and execute commands across multiple nodes with customizable scheduling. It handles logs efficiently and includes notifications to keep users updated on task statuses and results.
 

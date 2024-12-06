@@ -19,11 +19,21 @@ const (
 	CollectionChannels      = "channels"
 	CollectionSubscriptions = "subscriptions"
 	CollectionNotifications = "notifications"
-	NodeStatusOnline        = "online"
-	NodeStatusOffline       = "offline"
-	SchedulePeriod          = 60 // max delay in seconds for tasks with @every schedule
-	LogSeparator            = "[%s] [scriptflow] run %s"
-	LogsMaxDays             = 90
+	ChannelTypeEmail        = "email"
+	ChannelTypeSlack        = "slack"
+)
+
+const (
+	NodeStatusOnline      = "online"
+	NodeStatusOffline     = "offline"
+	SchedulePeriod        = 60 // max delay in seconds for tasks with @every schedule
+	LogSeparator          = "[%s] [scriptflow] run %s"
+	LogsMaxDays           = 90
+	SendMaxErrorCount     = 3
+	JobCheckNodeStatus    = "check-node-status"
+	JobRemoveOutdatedLogs = "remove-outdated-logs"
+	JobSendNotifications  = "send-notifications"
+	SystemTask            = "system-task"
 )
 
 const (
@@ -39,6 +49,7 @@ type ScriptFlowLocks struct {
 	scheduleTask          sync.Mutex
 	jobCheckNodeStatus    sync.Mutex
 	jobRemoveOutdatedLogs sync.Mutex
+	jobSendNotifications  sync.Mutex
 }
 
 type ScriptFlow struct {
@@ -128,6 +139,15 @@ type ProjectConfig struct {
 	LogsMaxDays *int `json:"logsMaxDays"`
 }
 
+type NotificationEmailConfig struct {
+	To string `json:"to"`
+}
+
+type NotificationSlackConfig struct {
+	Token   string `json:"token"`
+	Channel string `json:"channel"`
+}
+
 // GetProjectConfig retrieves a specific attribute from the row "config" JSON field.
 // Returns the value of the attribute if found, or the defaultValue if the attribute is not present or invalid.
 func GetCollectionConfigAttr(row *core.Record, attr string, defaultValue interface{}) (interface{}, error) {
@@ -148,4 +168,13 @@ func GetCollectionConfigAttr(row *core.Record, attr string, defaultValue interfa
 	default:
 		return defaultValue, nil // Fallback for unsupported attributes
 	}
+}
+
+type NotificationContext struct {
+	Project      *core.Record
+	Task         *core.Record
+	Run          *core.Record
+	Notification *core.Record
+	Subscription *core.Record
+	Channel      *core.Record
 }

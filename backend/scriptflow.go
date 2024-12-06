@@ -366,6 +366,83 @@ func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 	}
 }
 
+func (sf *ScriptFlow) JobSendNotifications() {
+	// Acquire lock to ensure scheduler access is thread-safe
+	sf.locks.jobSendNotifications.Lock()
+	defer sf.locks.jobSendNotifications.Unlock()
+
+	// select 10 last notifications where sent is false, sort by created
+	notifications, err := sf.app.FindRecordsByFilter(
+		CollectionNotifications,
+		"sent={:sent} && error_count<={:error_count}",
+		"updated",
+		1,
+		0,
+		dbx.Params{"sent": false, "error_count": SendMaxErrorCount},
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to query notifications collection", slog.Any("error", err))
+		return
+	}
+
+	for _, notification := range notifications {
+		// retrieve run
+		run, err := sf.app.FindRecordById(CollectionRuns, notification.GetString("run"))
+		if err != nil {
+			sf.app.Logger().Error("failed to find run", slog.Any("error", err))
+			continue
+		}
+		// retrieve task
+		task, err := sf.app.FindRecordById(CollectionTasks, run.GetString("task"))
+		if err != nil {
+			sf.app.Logger().Error("failed to find task", slog.Any("error", err))
+			continue
+		}
+		// retrieve project
+		project, err := sf.app.FindRecordById(CollectionProjects, task.GetString("project"))
+		if err != nil {
+			sf.app.Logger().Error("failed to find project", slog.Any("error", err))
+			continue
+		}
+		// retrieve subscription
+		subscription, err := sf.app.FindRecordById(CollectionSubscriptions, notification.GetString("subscription"))
+		if err != nil {
+			sf.app.Logger().Error("failed to find subscription", slog.Any("error", err))
+			continue
+		}
+		// retrieve channel
+		channel, err := sf.app.FindRecordById(CollectionChannels, subscription.GetString("channel"))
+		if err != nil {
+			sf.app.Logger().Error("failed to find channel", slog.Any("error", err))
+			continue
+		}
+		// send notification
+		err = sf.sendNotification(NotificationContext{
+			Project:      project,
+			Task:         task,
+			Run:          run,
+			Notification: notification,
+			Subscription: subscription,
+			Channel:      channel,
+		})
+		if err != nil {
+			sf.app.Logger().Error("failed to send notification", slog.Any("error", err))
+			// increment error counter
+			notification.Set("error_count", notification.GetInt("error_count")+1)
+			if err := sf.app.Save(notification); err != nil {
+				sf.app.Logger().Error("failed to save notification", slog.Any("error", err))
+			}
+		} else {
+			sf.app.Logger().Info("notification sent", slog.Any("notification", notification))
+			// mark notification as sent
+			notification.Set("sent", true)
+			if err := sf.app.Save(notification); err != nil {
+				sf.app.Logger().Error("failed to save notification", slog.Any("error", err))
+			}
+		}
+	}
+}
+
 func (sf *ScriptFlow) taskFileDate(fileName string) (time.Time, error) {
 	// Ensure file name matches the format YYYYMMDD.log
 	if len(fileName) != 12 || fileName[len(fileName)-4:] != ".log" {

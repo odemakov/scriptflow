@@ -64,23 +64,29 @@ func (sf *ScriptFlow) setupScheduler() {
 		sf.MarkAllRunningTasksAsInterrupted("app-started")
 
 		// schedule JobCheckNodeStatus task to run every 30 seconds
-		sf.app.Logger().Info("scheduling system tasks")
-		if _, err := sf.scheduler.Tag("system-task").SingletonMode().Every(30).Seconds().Do(func() {
+		if _, err := sf.scheduler.Tag(SystemTask).Tag(JobCheckNodeStatus).SingletonMode().Every(30).Seconds().Do(func() {
 			go sf.JobCheckNodeStatus()
 		}); err != nil {
 			sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
 		}
 
+		// schedule JobSendNotofocations task to run every 30 seconds
+		if _, err := sf.scheduler.Tag(SystemTask).Tag(JobSendNotifications).SingletonMode().Every(30).Seconds().Do(func() {
+			go sf.JobSendNotifications()
+		}); err != nil {
+			sf.app.Logger().Error("failed to schedule JobSendNotifications", slog.Any("err", err))
+		}
+
 		// schedule JobRemoveOutdatedLogs task
-		if _, err := sf.scheduler.Tag("system-task").SingletonMode().Cron("10 0 * * *").Do(func() {
+		if _, err := sf.scheduler.Tag(SystemTask).Tag(JobRemoveOutdatedLogs).SingletonMode().Cron("10 0 * * *").Do(func() {
 			go sf.JobRemoveOutdatedLogs()
 		}); err != nil {
 			sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("err", err))
 		}
 
-		// Schedule existing tasks
-		sf.app.Logger().Info("scheduling existing tasks")
+		// Schedule existing tasks, each tasks will be scheduled in their own goroutine
 		sf.scheduleActiveTasks()
+
 		return e.Next()
 	})
 
@@ -91,8 +97,9 @@ func (sf *ScriptFlow) setupScheduler() {
 		}
 		// init notification for run
 		if e.Record.Collection().Name == CollectionRuns {
-			sf.ProcessRunNotification(e.Record)
+			go sf.ProcessRunNotification(e.Record)
 		}
+
 		return e.Next()
 	})
 
@@ -101,14 +108,15 @@ func (sf *ScriptFlow) setupScheduler() {
 		if e.Record.Collection().Name == CollectionTasks {
 			go sf.ScheduleTask(e.Record)
 		}
+		// init notification for run
+		if e.Record.Collection().Name == CollectionRuns {
+			go sf.ProcessRunNotification(e.Record)
+		}
 		// Close node connection when node is updated, so that checkNodeStatus can attempt to reconnect with new params
 		if e.Record.Collection().Name == CollectionNodes {
 			sf.sshPool.Put(e.Record.GetString("host"))
 		}
-		// init notification for run
-		if e.Record.Collection().Name == CollectionRuns {
-			sf.ProcessRunNotification(e.Record)
-		}
+
 		return e.Next()
 	})
 
