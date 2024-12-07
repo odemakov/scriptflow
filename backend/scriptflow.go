@@ -26,8 +26,14 @@ func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow
 	}
 }
 
-func (sf *ScriptFlow) Start() {
+func (sf *ScriptFlow) Start() error {
+	// create sf_logs directory
+	if err := os.MkdirAll(sf.logsDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
 	sf.scheduler.StartAsync()
+
+	return nil
 }
 
 func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {
@@ -75,7 +81,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 	// schedule new task if active
 	if task.GetBool("active") {
 		// if task.schedule begins with @
-		if strings.HasPrefix(task.GetString("scedule"), "@") {
+		if strings.HasPrefix(task.GetString("schedule"), "@") {
 			// for @every 1m schedule task would run every minute from now
 			// we add random delay here to avoid running all tasks at the same time
 			time.Sleep(time.Second * time.Duration(rand.Intn(SchedulePeriod)))

@@ -33,8 +33,6 @@ func main() {
 
 func initScriptFlow(app *pocketbase.PocketBase) {
 	// get home directory of current user
-	// TODO: this is not cross-platform and should be fixed.
-	// Also service users often don't have home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("failed to get home directory: %v", err)
@@ -46,7 +44,9 @@ func initScriptFlow(app *pocketbase.PocketBase) {
 	sshPool := sshrun.NewPool(runCfg)
 
 	sf := NewScriptFlow(app, sshPool)
-	sf.Start()
+	if err := sf.Start(); err != nil {
+		log.Fatal(err)
+	}
 
 	sf.app.Logger().Info("setup scriptflow scheduler")
 	sf.setupScheduler()
