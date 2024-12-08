@@ -9,6 +9,7 @@ import PageTitle from '@/components/PageTitle.vue'
 import TaskCard from '@/components/TaskCard.vue';
 import TaskRuns from '@/components/TaskRuns.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import SubscriptionCard from '@/components/SubscriptionCard.vue';
 
 const useToasts = useToastStore()
 const useTasks = useTaskStore()
@@ -45,8 +46,9 @@ const crumbs = [
   <Breadcrumbs :crumbs="crumbs" />
   <PageTitle title="Task history" />
   <div class="flex flex-row gap-4">
-    <div class="basis-1/4">
+    <div class="basis-1/4 flex flex-col gap-4">
       <TaskCard :task="task" />
+      <SubscriptionCard :task="task" />
     </div>
     <div class="basis-3/4">
       <div role="tablist" class="tabs tabs-lifted">

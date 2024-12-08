@@ -1,6 +1,7 @@
 .builds
 .data
 .env.production
+.vscode
 frontend/.env
 backend/scriptflow
 backend/tmp

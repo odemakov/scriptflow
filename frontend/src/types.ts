@@ -4,6 +4,9 @@ export const CCollectionName = {
   runs: "runs",
   nodes: "nodes",
   projects: "projects",
+  channels: "channels",
+  subscriptions: "subscriptions",
+  notifications: "notifications",
 } as const;
 
 export const CRunStatus = {
@@ -67,6 +70,48 @@ export interface INode {
   host: string;
   user: string;
   name: string;
+  created: string;
+  updated: string;
+}
+
+export interface IChannel {
+  id: string;
+  collectionName: string;
+  name: string;
+  type: "email" | "slack";
+  config: object;
+  created: string;
+  updated: string;
+}
+
+export interface ISubscription {
+  id: string;
+  name: string;
+  task: string;
+  channel: string;
+  event: string[];
+  threshold: number;
+  active: boolean;
+  notified: string;
+  expand: {
+    task?: ITask;
+    channel?: IChannel;
+  };
+  created: string;
+  updated: string;
+}
+
+export interface IANotification {
+  id: string;
+  collectionName: string;
+  subscription: string;
+  run: string;
+  sent: boolean;
+  error_count: number;
+  expand: {
+    subscription?: ISubscription;
+    run?: IRun;
+  };
   created: string;
   updated: string;
 }

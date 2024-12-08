@@ -2,7 +2,7 @@
 
 **ScriptFlow** is a Distributed Command Scheduler designed to manage and execute commands across multiple nodes with customizable scheduling. It handles logs efficiently and includes notifications to keep users updated on task statuses and results.
 
-ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](htts://pocketbase.io) framework. The entire system is contained in a single file, with only two additional folders: one for the database and one for logs. This simplicity makes setup quick and ensures users can manage and monitor tasks without the hassle of complex systems.
+ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](https://pocketbase.io) framework. The entire system is contained in a single file, with only two additional folders: one for the database and one for logs. This simplicity makes setup quick and ensures users can manage and monitor tasks without the hassle of complex systems.
 
 # Existing systems
 
@@ -19,7 +19,7 @@ ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](
 - real-time tracking of task statuses and outcomes
 - quick and hassle-free installation
 - user-friendly web interface
-- simple REST-ish API
+- all bells and whistles come with [PocketBase](https://pocketbase.io)
 
 # Quick Start
 
@@ -33,7 +33,6 @@ Run `./scriptflow --http 0.0.0.0:8090 --dev serve`
 
 # Run as system service
 
-Download and extract
 Create `/etc/systemd/system/scriptflow.service` file
 
 ```
@@ -42,14 +41,14 @@ Description = scriptflow
 
 [Service]
 Type           = simple
-User           = root
-Group          = root
+User           = scriptflow
+Group          = scriptflow
 LimitNOFILE    = 4096
 Restart        = always
 RestartSec     = 5s
 StandardOutput = append:/var/log/scriptflow-out.log
 StandardError  = append:/var/log/scriptflow-err.log
-ExecStart      = /root/scriptflow/scriptflow --http 0.0.0.0:8090 serve
+ExecStart      = /data/scriptflow/scriptflow --dir /data/scriptflow/data/pb_data --http 0.0.0.0:8090 serve
 
 [Install]
 WantedBy = multi-user.target
