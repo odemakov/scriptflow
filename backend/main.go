@@ -2,11 +2,7 @@ package main
 
 import (
 	"log"
-	"log/slog"
-	"os"
-	"path/filepath"
 
-	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -32,19 +28,8 @@ func main() {
 }
 
 func initScriptFlow(app *pocketbase.PocketBase) {
-	// get home directory of current user
-	homeDir, err := os.UserHomeDir()
+	sf, err := NewScriptFlow(app)
 	if err != nil {
-		log.Fatalf("failed to get home directory: %v", err)
-	}
-
-	runCfg := &sshrun.RunConfig{
-		DefaultPrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
-	}
-	sshPool := sshrun.NewPool(runCfg)
-
-	sf := NewScriptFlow(app, sshPool)
-	if err := sf.Start(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -63,26 +48,8 @@ func (sf *ScriptFlow) setupScheduler() {
 		// mark all started tasks as interrupted, if any
 		sf.MarkAllRunningTasksAsInterrupted("app-started")
 
-		// schedule JobCheckNodeStatus task to run every 30 seconds
-		if _, err := sf.scheduler.Tag(SystemTask).Tag(JobCheckNodeStatus).SingletonMode().Every(30).Seconds().Do(func() {
-			go sf.JobCheckNodeStatus()
-		}); err != nil {
-			sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
-		}
-
-		// schedule JobSendNotofocations task to run every 30 seconds
-		if _, err := sf.scheduler.Tag(SystemTask).Tag(JobSendNotifications).SingletonMode().Every(30).Seconds().Do(func() {
-			go sf.JobSendNotifications()
-		}); err != nil {
-			sf.app.Logger().Error("failed to schedule JobSendNotifications", slog.Any("err", err))
-		}
-
-		// schedule JobRemoveOutdatedLogs task
-		if _, err := sf.scheduler.Tag(SystemTask).Tag(JobRemoveOutdatedLogs).SingletonMode().Cron("10 0 * * *").Do(func() {
-			go sf.JobRemoveOutdatedLogs()
-		}); err != nil {
-			sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("err", err))
-		}
+		// Schedule system tasks
+		sf.scheduleSystemTasks()
 
 		// Schedule existing tasks, each tasks will be scheduled in their own goroutine
 		sf.scheduleActiveTasks()
@@ -123,7 +90,7 @@ func (sf *ScriptFlow) setupScheduler() {
 	// Remove scheduled task
 	sf.app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == CollectionTasks {
-			_ = sf.scheduler.RemoveByTag(e.Record.Id)
+			sf.scheduler.RemoveByTags(e.Record.Id)
 		}
 		return e.Next()
 	})
@@ -154,6 +121,7 @@ func (sf *ScriptFlow) setupApi() {
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
 		e.Router.GET("/api/scriptflow/{projectId}/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
+		e.Router.GET("/api/scriptflow/{projectId}/task/{taskId}/run-once", sf.ApiTaskRun).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/{projectId}/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/stats", sf.ApiScriptFlowStats).Bind(apis.RequireAuth())
 		return e.Next()

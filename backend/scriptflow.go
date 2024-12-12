@@ -8,32 +8,44 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
-	"golang.org/x/exp/rand"
 )
 
-func NewScriptFlow(app *pocketbase.PocketBase, sshPool *sshrun.Pool) *ScriptFlow {
+func NewScriptFlow(app *pocketbase.PocketBase) (*ScriptFlow, error) {
+	// create sf_logs directory
+	logsDir := filepath.Join(app.DataDir(), "..", "sf_logs")
+	if err := os.MkdirAll(logsDir, os.ModePerm); err != nil {
+		return nil, err
+	}
+
+	// get home directory of current user
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	runCfg := &sshrun.RunConfig{
+		DefaultPrivateKey: filepath.Join(homeDir, ".ssh", "id_rsa"),
+	}
+	sshPool := sshrun.NewPool(runCfg)
+
+	scheduler, err := gocron.NewScheduler()
+	if err != nil {
+		return nil, err
+	}
+	scheduler.Start()
+
 	return &ScriptFlow{
 		app:       app,
 		sshPool:   sshPool,
-		scheduler: gocron.NewScheduler(time.UTC),
+		scheduler: scheduler,
 		locks:     &ScriptFlowLocks{},
-		logsDir:   filepath.Join(app.DataDir(), "..", "sf_logs"),
-	}
-}
-
-func (sf *ScriptFlow) Start() error {
-	// create sf_logs directory
-	if err := os.MkdirAll(sf.logsDir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create logs directory: %w", err)
-	}
-	sf.scheduler.StartAsync()
-
-	return nil
+		logsDir:   logsDir,
+	}, nil
 }
 
 func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {
@@ -49,6 +61,47 @@ func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {
 
 	if err != nil {
 		sf.app.Logger().Error("failed to mark running tasks as interrupted", slog.Any("err", err))
+	}
+}
+
+func (sf *ScriptFlow) scheduleSystemTasks() {
+	// schedule JobCheckNodeStatus task to run every 30 seconds
+	_, err := sf.scheduler.NewJob(
+		gocron.DurationJob(30*time.Second),
+		gocron.NewTask(func() {
+			go sf.JobCheckNodeStatus()
+		}),
+		gocron.WithTags(SystemTask, JobCheckNodeStatus),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
+	}
+
+	// schedule JobSendNotofocations task to run every 30 seconds
+	_, err = sf.scheduler.NewJob(
+		gocron.DurationJob(30*time.Second),
+		gocron.NewTask(func() {
+			go sf.JobSendNotifications()
+		}),
+		gocron.WithTags(SystemTask, JobSendNotifications),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
+	}
+
+	// schedule JobRemoveOutdatedLogs task
+	_, err = sf.scheduler.NewJob(
+		gocron.CronJob("10 0 * * *", false),
+		gocron.NewTask(func() {
+			go sf.JobRemoveOutdatedLogs()
+		}),
+		gocron.WithTags(SystemTask, JobRemoveOutdatedLogs),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("err", err))
 	}
 }
 
@@ -76,29 +129,41 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 	defer sf.locks.scheduleTask.Unlock()
 
 	// remove existing task
-	_ = sf.scheduler.RemoveByTag(task.GetString("id"))
+	sf.scheduler.RemoveByTags(task.GetString("id"))
 
 	// schedule new task if active
 	if task.GetBool("active") {
-		// if task.schedule begins with @
-		if strings.HasPrefix(task.GetString("schedule"), "@") {
-			// for @every 1m schedule task would run every minute from now
-			// we add random delay here to avoid running all tasks at the same time
-			time.Sleep(time.Second * time.Duration(rand.Intn(SchedulePeriod)))
-		}
-
 		// log scheduled task with task and node details
 		sf.app.Logger().Info("schedule task", taskAttrs(task))
-		_, err := sf.scheduler.Tag(task.GetString("id")).
-			SingletonMode().
-			Cron(task.GetString("schedule")).
-			Do(sf.runTask, task.GetString("id"))
-		if err != nil {
-			sf.app.Logger().Error(
-				"failed to schedule task",
-				taskAttrs(task),
-				slog.Any("error", err),
+		schedule := task.GetString("schedule")
+		// if schedule starts with @every, it is a duration schedule
+		if strings.HasPrefix(schedule, "@every ") {
+			duration, err := time.ParseDuration(schedule[7:])
+			if err != nil {
+				sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("err", err))
+				return
+			}
+			_, err = sf.scheduler.NewJob(
+				gocron.DurationJob(duration),
+				gocron.NewTask(sf.runTask, task.GetString("id")),
+				gocron.WithTags(task.GetString("id")),
+				gocron.WithSingletonMode(gocron.LimitModeReschedule),
 			)
+			if err != nil {
+				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("err", err))
+				return
+			}
+		} else {
+			_, err := sf.scheduler.NewJob(
+				gocron.CronJob(schedule, false),
+				gocron.NewTask(sf.runTask, task.GetString("id")),
+				gocron.WithTags(task.GetString("id")),
+				gocron.WithSingletonMode(gocron.LimitModeReschedule),
+			)
+			if err != nil {
+				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("err", err))
+				return
+			}
 		}
 	}
 }

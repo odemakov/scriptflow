@@ -73,6 +73,34 @@ func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 	return e.Next()
 }
 
+func (sf *ScriptFlow) ApiTaskRun(e *core.RequestEvent) error {
+	taskId := e.Request.PathValue("taskId")
+	task, err := sf.app.FindRecordById(CollectionTasks, taskId)
+	if err != nil {
+		return e.NotFoundError("Task not found", slog.String("taskId", taskId))
+	}
+
+	taskSchedule := task.GetString("schedule")
+
+	// update task schedule
+	task.Set("schedule", "@every 1s")
+	if err := sf.app.Save(task); err != nil {
+		return e.InternalServerError(err.Error(), "Failed to update task schedule")
+	}
+	// wait 2 seconds for task to start
+	time.Sleep(2 * time.Second)
+
+	// update task schedule to old value
+	task.Set("schedule", taskSchedule)
+	if err := sf.app.Save(task); err != nil {
+		return e.InternalServerError(err.Error(), "Failed to update task schedule")
+	}
+
+	return e.JSON(http.StatusOK, map[string]interface{}{
+		"msg": "Task scheduled to run",
+	})
+}
+
 // function to retrieve run log by runId
 func (sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 	runId := e.Request.PathValue("runId")

@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -54,7 +54,7 @@ type ScriptFlowLocks struct {
 
 type ScriptFlow struct {
 	app       *pocketbase.PocketBase
-	scheduler *gocron.Scheduler
+	scheduler gocron.Scheduler
 	sshPool   *sshrun.Pool
 	locks     *ScriptFlowLocks
 	logsDir   string

@@ -60,7 +60,12 @@ Enable and restart service
 
 # Cron scheduling
 
-Task.schedule field parsed by [robfig/cron/v3](https://pkg.go.dev/github.com/robfig/cron/v3) library
+The `Task.schedule` field accepts two types of values:
+
+1. **Cron Expression**: A standard cron expression like `0 * * * *`, which means the task will run at the start of every hour.
+2. **Duration Expression**: A duration string prefixed with `@every`, such as `@every 1h30m`, which means the task will run every 1 hour and 30 minutes. The duration is parsed using the `time.ParseDuration` function from the Go programming language.
+
+For more details on how to format the duration string, you can refer to the [time.ParseDuration documentation](https://pkg.go.dev/time#ParseDuration).
 
 # Development
 
