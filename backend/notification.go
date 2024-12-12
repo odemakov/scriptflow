@@ -226,7 +226,7 @@ type MessageData struct {
 
 func (sf *ScriptFlow) notificationMessage(task *core.Record, run *core.Record, taskUrl string, runUrl string) (string, error) {
 	data := MessageData{
-		Header:   "ScriptFlow Notification",
+		Header:   sf.app.Settings().Meta.AppName,
 		Greeting: "Hello,",
 		Items: []MessageItem{
 			{Name: "Command", Description: run.GetString("command")},

@@ -46,7 +46,7 @@ const crumbs = [
   <Breadcrumbs :crumbs="crumbs" />
   <PageTitle title="Task history" />
   <div class="flex flex-row gap-4">
-    <div class="basis-1/4 flex flex-col gap-4">
+    <div v-if="task" class="basis-1/4 flex flex-col gap-4">
       <TaskCard :task="task" />
       <SubscriptionCard :task="task" />
     </div>
