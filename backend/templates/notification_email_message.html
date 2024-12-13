@@ -61,28 +61,45 @@
   </head>
   <body>
     <div class="container">
-      <div class="header {{.RunStatus}}">
+      <div class="header {{.Item.Status}}">
         <h1>{{.Header}}</h1>
       </div>
       <div class="content">
-        <h2>{{.Greeting}}</h2>
+        <h3>{{.Subject}}</h3>
         <p>
           Task <a href="{{.TaskUrl}}" targer="_blank">{{.TaskName}}</a> finished
-          with status <a href="{{.RunUrl}}" target="_blank">{{.RunStatus}}</p>
+          with status <a href="{{.RunUrl}}" target="_blank">{{.Item.Status}}</a>
           <table>
-            {{range .Items}}
-            {{if eq .Name "Status"}}
-            <tr class="{{.Description}}">
-              <td>{{.Name}}</td>
-              <td>{{.Description}}</td>
-            </tr>
-            {{else}}
             <tr>
-              <td>{{.Name}}</td>
-              <td>{{.Description}}</td>
+              <td>Command</td>
+              <td>{{.Item.Command}}</td>
+            </tr>
+            <tr>
+              <td>Host</td>
+              <td>{{.Item.Host}}</td>
+            </tr>
+            <tr class="{{.Item.Status}}">
+              <td>Status</td>
+              <td>{{.Item.Status}}</td>
+            </tr>
+            {{if .Item.Error}}
+            <tr>
+              <td>Error</td>
+              <td>{{.Item.Error}}</td>
             </tr>
             {{end}}
-            {{end}}
+            <tr>
+              <td>Exit code</td>
+              <td>{{.Item.ExitCode}}</td>
+            </tr>
+            <tr>
+              <td>Created</td>
+              <td>{{.Item.Created}}</td>
+            </tr>
+            <tr>
+              <td>Updated</td>
+              <td>{{.Item.Updated}}</td>
+            </tr>
           </table>
         </div>
         <div class="footer"></div>

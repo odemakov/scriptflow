@@ -175,3 +175,23 @@ type NotificationContext struct {
 	Subscription *core.Record
 	Channel      *core.Record
 }
+
+type MessageItem struct {
+	Command  string
+	Host     string
+	Status   string
+	Error    string
+	ExitCode string
+	Created  string
+	Updated  string
+}
+
+type MessageContext struct {
+	Header   string
+	Subject  string
+	Status   string
+	TaskName string
+	TaskUrl  string
+	RunUrl   string
+	Item     MessageItem
+}

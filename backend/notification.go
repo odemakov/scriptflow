@@ -11,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/mailer"
 	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/slack-go/slack"
 )
 
 // on run create/update checks notification configs and creates notification row if needed
@@ -141,45 +142,23 @@ func retrieveSubscriptionsForRun(db dbx.Builder, run *RunItem) ([]SubscriptionIt
 
 // send notification
 func (sf *ScriptFlow) sendNotification(notificationContext NotificationContext) error {
-	taskUrl := fmt.Sprintf(
-		"%s/app/%s/%s/history",
-		sf.app.Settings().Meta.AppURL,
-		notificationContext.Project.GetString("slug"),
-		notificationContext.Task.GetString("slug"),
-	)
-	runUrl := fmt.Sprintf(
-		"%s/app/%s/%s/%s",
-		sf.app.Settings().Meta.AppURL,
-		notificationContext.Project.GetString("slug"),
-		notificationContext.Task.GetString("slug"),
-		notificationContext.Run.GetString("id"),
-	)
-	message, err := sf.notificationMessage(notificationContext.Task, notificationContext.Run, taskUrl, runUrl)
-	if err != nil {
-		sf.app.Logger().Error("failed to create notification message", slog.Any("err", err))
-		return err
-	}
-	subject, err := sf.notificationSubject(notificationContext.Subscription, notificationContext.Run)
-	if err != nil {
-		sf.app.Logger().Error("failed to create notification subject", slog.Any("err", err))
-		return err
-	}
+	mc := sf.buildMessageContext(notificationContext)
 
 	channelType := notificationContext.Channel.GetString("type")
 	if channelType == ChannelTypeEmail {
-		emailNotificationConfig := NotificationEmailConfig{}
-		err := notificationContext.Channel.UnmarshalJSONField("config", &emailNotificationConfig)
+		message, err := sf.notificationEmailMessage(mc)
 		if err != nil {
+			sf.app.Logger().Error("failed to create notification message", slog.Any("err", err))
 			return err
 		}
-		return sf.sendEmailNotification(subject, message, emailNotificationConfig)
+		return sf.sendEmailNotification(mc.Subject, message, notificationContext.Channel)
 	} else if channelType == ChannelTypeSlack {
-		config := NotificationSlackConfig{}
-		err := notificationContext.Channel.UnmarshalJSONField("config", &config)
+		message, err := sf.notificationSlackMessage(mc)
 		if err != nil {
+			sf.app.Logger().Error("failed to create notification message", slog.Any("err", err))
 			return err
 		}
-		return sf.sendSlackNotification(subject, message, config)
+		return sf.sendSlackNotification(mc.Subject, message, notificationContext.Channel)
 	} else {
 		sf.app.Logger().Error("unknown channel type", slog.Any("type", channelType))
 	}
@@ -187,12 +166,32 @@ func (sf *ScriptFlow) sendNotification(notificationContext NotificationContext) 
 }
 
 // send slack message
-func (sf *ScriptFlow) sendSlackNotification(subject string, message string, config NotificationSlackConfig) error {
+func (sf *ScriptFlow) sendSlackNotification(subject string, message string, channel *core.Record) error {
+	config := NotificationSlackConfig{}
+	err := channel.UnmarshalJSONField("config", &config)
+	if err != nil {
+		return err
+	}
+	api := slack.New(config.Token)
+	_, _, err = api.PostMessage(
+		config.Channel,
+		slack.MsgOptionText(message, false),
+		slack.MsgOptionAsUser(true), // Add this if you want that the bot would post message as a user, otherwise it will send response using the default slackbot
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// send email
-func (sf *ScriptFlow) sendEmailNotification(subject string, message string, config NotificationEmailConfig) error {
+// send email message
+func (sf *ScriptFlow) sendEmailNotification(subject string, message string, channel *core.Record) error {
+	config := NotificationEmailConfig{}
+	err := channel.UnmarshalJSONField("config", &config)
+	if err != nil {
+		return err
+	}
 	mailerMessage := &mailer.Message{
 		From: mail.Address{
 			Address: sf.app.Settings().Meta.SenderAddress,
@@ -205,51 +204,70 @@ func (sf *ScriptFlow) sendEmailNotification(subject string, message string, conf
 	return sf.app.NewMailClient().Send(mailerMessage)
 }
 
-func (sf *ScriptFlow) notificationSubject(subscription *core.Record, run *core.Record) (string, error) {
-	return fmt.Sprintf("[ScriptFlow] %s <%s>", run.GetString("status"), subscription.GetString("name")), nil
-}
+func (sf *ScriptFlow) buildMessageContext(nc NotificationContext) MessageContext {
+	taskUrl := fmt.Sprintf(
+		"%s/app/%s/%s/history",
+		sf.app.Settings().Meta.AppURL,
+		nc.Project.GetString("slug"),
+		nc.Task.GetString("slug"),
+	)
+	runUrl := fmt.Sprintf(
+		"%s/app/%s/%s/%s",
+		sf.app.Settings().Meta.AppURL,
+		nc.Project.GetString("slug"),
+		nc.Task.GetString("slug"),
+		nc.Run.GetString("id"),
+	)
 
-type MessageItem struct {
-	Name        string
-	Description string
-}
-type MessageData struct {
-	Header    string
-	Greeting  string
-	Items     []MessageItem
-	Status    string
-	TaskUrl   string
-	TaskName  string
-	RunUrl    string
-	RunStatus string
-}
-
-func (sf *ScriptFlow) notificationMessage(task *core.Record, run *core.Record, taskUrl string, runUrl string) (string, error) {
-	data := MessageData{
-		Header:   sf.app.Settings().Meta.AppName,
-		Greeting: "Hello,",
-		Items: []MessageItem{
-			{Name: "Command", Description: run.GetString("command")},
-			{Name: "Host", Description: run.GetString("host")},
-			{Name: "Status", Description: run.GetString("status")},
-			{Name: "Error", Description: run.GetString("connection_error")},
-			{Name: "Exit code", Description: fmt.Sprintf("%d", run.GetInt("exit_code"))},
-			{Name: "Created", Description: run.GetDateTime("created").String()},
+	return MessageContext{
+		Header: sf.app.Settings().Meta.AppName,
+		Subject: fmt.Sprintf(
+			"[%s] %s <%s>",
+			sf.app.Settings().Meta.AppName,
+			nc.Run.GetString("status"),
+			nc.Subscription.GetString("name"),
+		),
+		Item: MessageItem{
+			Command:  nc.Run.GetString("command"),
+			Host:     nc.Run.GetString("host"),
+			Status:   nc.Run.GetString("status"),
+			Error:    nc.Run.GetString("connection_error"),
+			ExitCode: fmt.Sprintf("%d", nc.Run.GetInt("exit_code")),
+			Created:  nc.Run.GetDateTime("created").String(),
+			Updated:  nc.Run.GetDateTime("updated").String(),
 		},
-		TaskUrl:   taskUrl,
-		TaskName:  task.GetString("name"),
-		RunUrl:    runUrl,
-		RunStatus: run.GetString("status"),
+		TaskUrl:  taskUrl,
+		TaskName: nc.Task.GetString("name"),
+		RunUrl:   runUrl,
 	}
+}
+
+func (sf *ScriptFlow) notificationEmailMessage(mc MessageContext) (string, error) {
 	// Parse the HTML template
-	tmpl, err := template.ParseFiles("templates/notification_body.html")
+	tmpl, err := template.ParseFiles("templates/notification_email_message.html")
 	if err != nil {
 		sf.app.Logger().Error("failed to parse template", slog.Any("err", err))
 		return "", err
 	}
 	// Execute the template and return as a string
 	var tpl bytes.Buffer
-	if err := tmpl.Execute(&tpl, data); err != nil {
+	if err := tmpl.Execute(&tpl, mc); err != nil {
+		sf.app.Logger().Error("failed to execute template", slog.Any("err", err))
+		return "", err
+	}
+	return tpl.String(), nil
+}
+
+func (sf *ScriptFlow) notificationSlackMessage(mc MessageContext) (string, error) {
+	// Parse the HTML template
+	tmpl, err := template.ParseFiles("templates/notification_slack_message.md")
+	if err != nil {
+		sf.app.Logger().Error("failed to parse template", slog.Any("err", err))
+		return "", err
+	}
+	// Execute the template and return as a string
+	var tpl bytes.Buffer
+	if err := tmpl.Execute(&tpl, mc); err != nil {
 		sf.app.Logger().Error("failed to execute template", slog.Any("err", err))
 		return "", err
 	}
