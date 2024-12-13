@@ -91,6 +91,8 @@ func (sf *ScriptFlow) setupScheduler() {
 	sf.app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == CollectionTasks {
 			sf.scheduler.RemoveByTags(e.Record.Id)
+			// it can take a while to remove all task logs, so we will do it in background
+			go sf.RemoveTaskLogs(e.Record.Id)
 		}
 		return e.Next()
 	})

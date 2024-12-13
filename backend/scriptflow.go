@@ -88,7 +88,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
 	if err != nil {
-		sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
+		sf.app.Logger().Error("failed to schedule JobSendNotifications", slog.Any("err", err))
 	}
 
 	// schedule JobRemoveOutdatedLogs task
@@ -310,10 +310,6 @@ func nodeSSHConfig(node *core.Record) *sshrun.SSHConfig {
 
 // JobNodeStatus checks all the nodes and marks them as online or offline
 func (sf *ScriptFlow) JobCheckNodeStatus() {
-	// Acquire lock to ensure scheduler access is thread-safe
-	sf.locks.jobCheckNodeStatus.Lock()
-	defer sf.locks.jobCheckNodeStatus.Unlock()
-
 	nodes, err := sf.app.FindAllRecords(CollectionNodes)
 	if err != nil {
 		sf.app.Logger().Error("failed to query nodes collection", slog.Any("error", err))
@@ -358,11 +354,15 @@ func (sf *ScriptFlow) JobCheckNodeStatus() {
 	}
 }
 
-func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
-	// Acquire lock to ensure scheduler access is thread-safe
-	sf.locks.jobRemoveOutdatedLogs.Lock()
-	defer sf.locks.jobRemoveOutdatedLogs.Unlock()
+func (sf *ScriptFlow) RemoveTaskLogs(taskId string) error {
+	logDir := sf.taskLogRootDir(taskId)
+	if err := os.RemoveAll(logDir); err != nil {
+		return fmt.Errorf("failed to remove task logs: %w", err)
+	}
+	return nil
+}
 
+func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 	projects, err := sf.app.FindAllRecords(CollectionProjects)
 	if err != nil {
 		sf.app.Logger().Error("failed to query project collection", slog.Any("error", err))
@@ -432,10 +432,6 @@ func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 }
 
 func (sf *ScriptFlow) JobSendNotifications() {
-	// Acquire lock to ensure scheduler access is thread-safe
-	sf.locks.jobSendNotifications.Lock()
-	defer sf.locks.jobSendNotifications.Unlock()
-
 	// select 10 last notifications where sent is false, sort by created
 	notifications, err := sf.app.FindRecordsByFilter(
 		CollectionNotifications,

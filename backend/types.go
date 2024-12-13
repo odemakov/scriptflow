@@ -46,10 +46,7 @@ const (
 
 // ScriptFlowLocks encapsulates the locks for different tasks
 type ScriptFlowLocks struct {
-	scheduleTask          sync.Mutex
-	jobCheckNodeStatus    sync.Mutex
-	jobRemoveOutdatedLogs sync.Mutex
-	jobSendNotifications  sync.Mutex
+	scheduleTask sync.Mutex
 }
 
 type ScriptFlow struct {
