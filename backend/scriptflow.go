@@ -93,7 +93,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 
 	// schedule JobRemoveOutdatedLogs task
 	_, err = sf.scheduler.NewJob(
-		gocron.CronJob("10 0 * * *", false),
+		gocron.CronJob("39 * * * *", false),
 		gocron.NewTask(func() {
 			go sf.JobRemoveOutdatedLogs()
 		}),
@@ -170,7 +170,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 
 // run scheduled task
 func (sf *ScriptFlow) runTask(taskId string) {
-	project, task, node, err := sf.findProjectNodeAndTaskToRun(taskId)
+	node, task, err := sf.findNodeAndTaskToRun(taskId)
 	if err != nil {
 		sf.app.Logger().Error("failed to find project, node or task", slog.Any("error", err))
 		return
@@ -184,7 +184,7 @@ func (sf *ScriptFlow) runTask(taskId string) {
 	}
 
 	// Create and open log file
-	logFile, err := sf.createLogFile(project.Id, task.Id)
+	logFile, err := sf.createLogFile(task.Id)
 	if err != nil {
 		sf.app.Logger().Error("Log file error", slog.Any("error", err))
 		return
@@ -226,36 +226,30 @@ func (sf *ScriptFlow) runTask(taskId string) {
 
 // return corresponding project, node and task to run
 // check that node is online and task is active
-func (sf *ScriptFlow) findProjectNodeAndTaskToRun(taskId string) (*core.Record, *core.Record, *core.Record, error) {
+func (sf *ScriptFlow) findNodeAndTaskToRun(taskId string) (*core.Record, *core.Record, error) {
 	// Fetch task record
 	task, err := sf.app.FindRecordById(CollectionTasks, taskId)
 	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Fetch project record
-	project, err := sf.app.FindRecordById(CollectionProjects, task.GetString("project"))
-	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Fetch node record
 	node, err := sf.app.FindRecordById(CollectionNodes, task.GetString("node"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Skip task if the node is offline
 	if node.GetString("status") != NodeStatusOnline {
-		return nil, nil, nil, NewNodeStatusNotOnlineError()
+		return nil, nil, NewNodeStatusNotOnlineError()
 	}
 
 	// Skip task if it is not active
 	if !task.GetBool("active") {
-		return nil, nil, nil, NewTaskNotActiveError()
+		return nil, nil, NewTaskNotActiveError()
 	}
 
-	return project, task, node, nil
+	return node, task, nil
 }
 
 func (sf *ScriptFlow) createRunRecord(node *core.Record, task *core.Record) (*core.Record, error) {
@@ -399,7 +393,7 @@ func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 
 		for _, task := range tasks {
 			// Directory for log files
-			logDir := sf.taskLogRootDir(project.Id, task.Id)
+			logDir := sf.taskLogRootDir(task.Id)
 			files, err := os.ReadDir(logDir)
 			if err != nil {
 				sf.app.Logger().Error("failed to read task log directory", taskAttrs(task), slog.Any("error", err))
@@ -529,31 +523,30 @@ func (sf *ScriptFlow) taskFileDate(fileName string) (time.Time, error) {
 	return fileDate, nil
 }
 
-// {sf.logsDir}/{projectId}/{taskId}
-func (sf *ScriptFlow) taskLogRootDir(projectId string, taskId string) string {
+// {sf.logsDir}/{taskId}
+func (sf *ScriptFlow) taskLogRootDir(taskId string) string {
 	return filepath.Join(
 		sf.logsDir,
-		projectId,
 		taskId,
 	)
 }
 
-// {taskLogRootDir}/{TtaskLogFileName}.log
-func (sf *ScriptFlow) taskLogFilePathDate(projectId, taskId string, dateTime time.Time) string {
+// {taskLogRootDir}/{taskLogFileName}.log
+func (sf *ScriptFlow) taskLogFilePathDate(taskId string, dateTime time.Time) string {
 	fileName := TaskLogFileName(dateTime.UTC())
 	return filepath.Join(
-		sf.taskLogRootDir(projectId, taskId),
+		sf.taskLogRootDir(taskId),
 		fileName,
 	)
 }
 
 // Helper function to get today's log file path
-func (sf *ScriptFlow) taskTodayLogFilePath(projectId string, taskId string) string {
-	return sf.taskLogFilePathDate(projectId, taskId, time.Now())
+func (sf *ScriptFlow) taskTodayLogFilePath(taskId string) string {
+	return sf.taskLogFilePathDate(taskId, time.Now())
 }
 
-func (sf *ScriptFlow) createLogFile(projectId string, taskId string) (*os.File, error) {
-	filePath := sf.taskTodayLogFilePath(projectId, taskId)
+func (sf *ScriptFlow) createLogFile(taskId string) (*os.File, error) {
+	filePath := sf.taskTodayLogFilePath(taskId)
 	logDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 		return nil, NewFailedCreateLogFileDirectoryError()

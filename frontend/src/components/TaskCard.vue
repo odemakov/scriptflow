@@ -52,7 +52,7 @@ const gotoProject = () => {
 
 const runTask = async () => {
   runTaskButtonDisabled.value = true
-  const runOnceUrl = `/api/scriptflow/${props.task.project}/task/${props.task.id}/run-once`;
+  const runOnceUrl = `/api/scriptflow/task/${props.task.id}/run-once`;
 
   // set Autorization header with token
   fetch(runOnceUrl, {

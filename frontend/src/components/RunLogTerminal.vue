@@ -1,26 +1,20 @@
 <script setup lang="ts">
 import "@xterm/xterm/css/xterm.css";
-import { watch, ref, onMounted, onUnmounted, computed } from 'vue';
-import { useRoute } from 'vue-router'
+import { watch, ref, onMounted, onUnmounted } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 
 import { useToastStore } from '@/stores/ToastStore';
 import { useAuthStore } from '@/stores/AuthStore';
-import { useProjectStore } from '@/stores/ProjectStore';
 
 const props = defineProps<{
   run: IRun,
 }>()
 
 const auth = useAuthStore()
-const route = useRoute()
 const useToasts = useToastStore()
-const useProjects = useProjectStore()
 const terminalRef = ref(null);
 const term = new Terminal(CTerminalDefaults)
-const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
-const project = computed(() => useProjects.getProject)
 
 // Initialize FitAddon
 const fitAddon = new FitAddon();
@@ -39,7 +33,7 @@ watch(() => props.run, async () => {
 
 // function to retrieve logs from the server
 const fetchLogs = async () => {
-  const logUrl = `/api/scriptflow/${project.value.id}/run/${props.run.id}/log`;
+  const logUrl = `/api/scriptflow/run/${props.run.id}/log`;
 
   // set Autorization header with token
   fetch(logUrl, {
@@ -69,8 +63,6 @@ const fetchLogs = async () => {
 }
 
 onMounted(() => {
-  useProjects.fetchProject(projectSlug)
-
   // Open Terminal
   if (terminalRef.value) {
     term.open(terminalRef.value);

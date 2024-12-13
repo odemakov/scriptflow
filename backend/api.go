@@ -25,7 +25,6 @@ var (
 )
 
 func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
-	projectId := e.Request.PathValue("projectId")
 	taskId := e.Request.PathValue("taskId")
 
 	// Upgrade HTTP connection to WebSocket
@@ -54,7 +53,7 @@ func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 	}()
 
 	// Locate the log file
-	logFilePath := sf.taskTodayLogFilePath(projectId, taskId)
+	logFilePath := sf.taskTodayLogFilePath(taskId)
 	sf.app.Logger().Debug("TaskLogWebSocket handler", slog.String("file", logFilePath))
 	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
 		err := conn.WriteMessage(websocket.TextMessage, []byte("Log file not found"))
@@ -104,7 +103,6 @@ func (sf *ScriptFlow) ApiTaskRun(e *core.RequestEvent) error {
 // function to retrieve run log by runId
 func (sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 	runId := e.Request.PathValue("runId")
-	projectId := e.Request.PathValue("projectId")
 
 	// select run by run id
 	run, err := sf.app.FindRecordById(CollectionRuns, runId)
@@ -118,19 +116,8 @@ func (sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 		return e.NotFoundError("Task not found", slog.String("taskId", run.GetString("task")))
 	}
 
-	// select project by task
-	project, err := sf.app.FindRecordById(CollectionProjects, task.GetString("project"))
-	if err != nil {
-		return e.NotFoundError("Project not found", slog.String("projectId", task.GetString("project")))
-	}
-
-	if project.GetString("id") != projectId {
-		return e.ForbiddenError("Project id does not match", slog.String("projectId", projectId))
-	}
-
 	// get log file path
 	logFilePath := sf.taskLogFilePathDate(
-		project.GetString("id"),
 		task.GetString("id"),
 		run.GetDateTime("created").Time(),
 	)
