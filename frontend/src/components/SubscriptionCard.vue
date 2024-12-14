@@ -35,7 +35,7 @@ const toggleTaskActive = async (subscriptionId: string) => {
 </script>
 
 <template>
-  <div class="card card-compact bg-base-100 w-96 shadow-xl">
+  <div class="card card-compact bg-base-100 shadow-xl">
     <div class="card-body">
       <h2 class="card-title">Task subscriptions</h2>
       <table class="table table-xs">

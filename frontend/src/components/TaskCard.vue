@@ -80,7 +80,7 @@ const runTask = async () => {
 </script>
 
 <template>
-  <div class="card card-compact bg-base-100 w-96 shadow-xl">
+  <div class="card card-compact bg-base-100 shadow-xl">
     <div class="card-body">
       <h2 class="card-title">{{ props.task.name }}</h2>
       <button class="btn btn-xs" :disabled="runTaskButtonDisabled || lastRunStarted" @click="runTask()">Run

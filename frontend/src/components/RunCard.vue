@@ -17,7 +17,7 @@ const gotoTask = () => {
 </script>
 
 <template>
-  <div class="card card-compact bg-base-200 w-96 shadow-xl">
+  <div class="card card-compact bg-base-200 shadow-xl">
     <div class="card-body">
       <h2 class="card-title">{{ props.run?.expand?.task?.name }}</h2>
       <Command v-if="props.run.command" :command="props.run.command" />
