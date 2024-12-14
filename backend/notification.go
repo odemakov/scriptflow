@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -23,7 +24,7 @@ func (sf *ScriptFlow) ProcessRunNotification(run *core.Record) {
 	}
 	subscriptions, err := retrieveSubscriptionsForRun(sf.app.DB(), runItem)
 	if err != nil {
-		sf.app.Logger().Error("failed to retrieve subscriptions", slog.Any("err", err))
+		sf.app.Logger().Error("failed to retrieve subscriptions", slog.Any("error", err))
 		return
 	}
 
@@ -39,7 +40,7 @@ func (sf *ScriptFlow) ProcessRunNotification(run *core.Record) {
 		} else {
 			consecutiveRunsCount, err := retrieveConsecutiveRunsCount(sf.app.DB(), subscription)
 			if err != nil {
-				sf.app.Logger().Error("failed to retrieve previous runs count", slog.Any("err", err))
+				sf.app.Logger().Error("failed to retrieve previous runs count", slog.Any("error", err))
 				continue
 			}
 
@@ -64,7 +65,7 @@ func (sf *ScriptFlow) createNotification(subscription *SubscriptionItem, run *co
 		},
 	).Execute()
 	if err != nil {
-		sf.app.Logger().Error("failed to create notification", slog.Any("err", err))
+		sf.app.Logger().Error("failed to create notification", slog.Any("error", err))
 		return
 	}
 
@@ -75,15 +76,15 @@ func (sf *ScriptFlow) createNotification(subscription *SubscriptionItem, run *co
 		dbx.HashExp{"id": subscription.Id},
 	).Execute()
 	if err != nil {
-		sf.app.Logger().Error("failed to update subscription", slog.Any("err", err))
+		sf.app.Logger().Error("failed to update subscription", slog.Any("error", err))
 	}
 }
 
-// Select {threshold} most recent runs with status in ({subscription.events}) for the task, newer than {subscriptio.notified}
-// returns row's count
+// Select {threshold} most recent runs newer than {subscriptio.notified}
+// return count of runs with status in {subscription.events}
 func retrieveConsecutiveRunsCount(db dbx.Builder, subscription SubscriptionItem) (int, error) {
 	// SELECT id FROM runs
-	// WHERE task='{taskId}' AND created > '{notified}' AND status IN ('status1', 'status2')
+	// WHERE task='{taskId}' AND created > '{notified}'
 	// ORDER BY `created` DESC
 	// LIMIT {threshold}
 	query := db.Select("status").
@@ -148,14 +149,12 @@ func (sf *ScriptFlow) sendNotification(notificationContext NotificationContext) 
 	if channelType == ChannelTypeEmail {
 		message, err := sf.notificationEmailMessage(mc)
 		if err != nil {
-			sf.app.Logger().Error("failed to create notification message", slog.Any("err", err))
 			return err
 		}
 		return sf.sendEmailNotification(mc.Subject, message, notificationContext.Channel)
 	} else if channelType == ChannelTypeSlack {
 		message, err := sf.notificationSlackMessage(mc)
 		if err != nil {
-			sf.app.Logger().Error("failed to create notification message", slog.Any("err", err))
 			return err
 		}
 		return sf.sendSlackNotification(mc.Subject, message, notificationContext.Channel)
@@ -242,33 +241,32 @@ func (sf *ScriptFlow) buildMessageContext(nc NotificationContext) MessageContext
 	}
 }
 
+//go:embed templates/*
+var embeddedTemplates embed.FS
+
 func (sf *ScriptFlow) notificationEmailMessage(mc MessageContext) (string, error) {
-	// Parse the HTML template
-	tmpl, err := template.ParseFiles("templates/notification_email_message.html")
+	// Parse the HTML template from the embedded file system
+	tmpl, err := template.ParseFS(embeddedTemplates, "templates/notification_email_message.html")
 	if err != nil {
-		sf.app.Logger().Error("failed to parse template", slog.Any("err", err))
 		return "", err
 	}
 	// Execute the template and return as a string
 	var tpl bytes.Buffer
 	if err := tmpl.Execute(&tpl, mc); err != nil {
-		sf.app.Logger().Error("failed to execute template", slog.Any("err", err))
 		return "", err
 	}
 	return tpl.String(), nil
 }
 
 func (sf *ScriptFlow) notificationSlackMessage(mc MessageContext) (string, error) {
-	// Parse the HTML template
-	tmpl, err := template.ParseFiles("templates/notification_slack_message.md")
+	// Parse the HTML template from the embedded file system
+	tmpl, err := template.ParseFS(embeddedTemplates, "templates/notification_slack_message.md")
 	if err != nil {
-		sf.app.Logger().Error("failed to parse template", slog.Any("err", err))
 		return "", err
 	}
 	// Execute the template and return as a string
 	var tpl bytes.Buffer
 	if err := tmpl.Execute(&tpl, mc); err != nil {
-		sf.app.Logger().Error("failed to execute template", slog.Any("err", err))
 		return "", err
 	}
 	return tpl.String(), nil

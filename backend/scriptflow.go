@@ -60,7 +60,7 @@ func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {
 	).Execute()
 
 	if err != nil {
-		sf.app.Logger().Error("failed to mark running tasks as interrupted", slog.Any("err", err))
+		sf.app.Logger().Error("failed to mark running tasks as interrupted", slog.Any("error", err))
 	}
 }
 
@@ -75,7 +75,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
 	if err != nil {
-		sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("err", err))
+		sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("error", err))
 	}
 
 	// schedule JobSendNotofocations task to run every 30 seconds
@@ -88,7 +88,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
 	if err != nil {
-		sf.app.Logger().Error("failed to schedule JobSendNotifications", slog.Any("err", err))
+		sf.app.Logger().Error("failed to schedule JobSendNotifications", slog.Any("error", err))
 	}
 
 	// schedule JobRemoveOutdatedLogs task
@@ -101,7 +101,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
 	if err != nil {
-		sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("err", err))
+		sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("error", err))
 	}
 }
 
@@ -140,7 +140,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 		if strings.HasPrefix(schedule, "@every ") {
 			duration, err := time.ParseDuration(schedule[7:])
 			if err != nil {
-				sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("err", err))
+				sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("error", err))
 				return
 			}
 			_, err = sf.scheduler.NewJob(
@@ -150,7 +150,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 				gocron.WithSingletonMode(gocron.LimitModeReschedule),
 			)
 			if err != nil {
-				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("err", err))
+				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("error", err))
 				return
 			}
 		} else {
@@ -161,7 +161,7 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 				gocron.WithSingletonMode(gocron.LimitModeReschedule),
 			)
 			if err != nil {
-				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("err", err))
+				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("error", err))
 				return
 			}
 		}
