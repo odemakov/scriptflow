@@ -99,7 +99,7 @@ const gotoRun = (run: IRun) => {
   if (run.status === CRunStatus.started) {
     router.push({ name: 'task-log', params: { projectSlug: projectSlug, taskSlug: run.expand.task.slug } })
   } else {
-    router.push({ name: 'run', params: { id: run.id } })
+    router.push({ name: 'run', params: { projectSlug: projectSlug, taskSlug: run.expand.task.slug, id: run.id } })
   }
 }
 
