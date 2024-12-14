@@ -143,8 +143,10 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 				sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("error", err))
 				return
 			}
+			// spread tasks by 10% of duration to avoid running them simultaneously
+			min, max := durationMinMax(duration)
 			_, err = sf.scheduler.NewJob(
-				gocron.DurationJob(duration),
+				gocron.DurationRandomJob(min, max),
 				gocron.NewTask(sf.runTask, task.GetString("id")),
 				gocron.WithTags(task.GetString("id")),
 				gocron.WithSingletonMode(gocron.LimitModeReschedule),
@@ -166,6 +168,13 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 			}
 		}
 	}
+}
+
+// function returns -10% and +10% of given duration
+func durationMinMax(duration time.Duration) (time.Duration, time.Duration) {
+	// calculate 10% spread from duration
+	spread := duration / 10
+	return duration - spread, duration + spread
 }
 
 // run scheduled task
