@@ -18,9 +18,6 @@ import (
 func NewScriptFlow(app *pocketbase.PocketBase) (*ScriptFlow, error) {
 	// create sf_logs directory
 	logsDir := filepath.Join(app.DataDir(), "..", "sf_logs")
-	if err := os.MkdirAll(logsDir, os.ModePerm); err != nil {
-		return nil, err
-	}
 
 	// get home directory of current user
 	homeDir, err := os.UserHomeDir()
@@ -46,6 +43,13 @@ func NewScriptFlow(app *pocketbase.PocketBase) (*ScriptFlow, error) {
 		locks:     &ScriptFlowLocks{},
 		logsDir:   logsDir,
 	}, nil
+}
+
+func (sf *ScriptFlow) Start() error {
+	if err := os.MkdirAll(sf.logsDir, os.ModePerm); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {

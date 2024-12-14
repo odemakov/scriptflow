@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -12,34 +14,53 @@ import (
 	_ "scriptflow/migrations"
 )
 
+// version of scriptflow
+var Version = "(untracked)"
+
 func main() {
 	app := pocketbase.New()
+
+	// redefine pocketbase's --version flag
+	var showVersion bool
+	app.RootCmd.Flags().BoolVarP(&showVersion, "version", "v", false, "Show version information")
+	app.RootCmd.ParseFlags(os.Args[1:])
+
+	if showVersion {
+		fmt.Printf("Version: %s\n", Version)
+		os.Exit(0)
+	}
 
 	// enable auto creation of migration files when making collection changes in the Dashboard
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		Automigrate: app.IsDev(),
 	})
 
-	initScriptFlow(app)
+	sf := initScriptFlow(app)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
+
+	if err := sf.Start(); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func initScriptFlow(app *pocketbase.PocketBase) {
+func initScriptFlow(app *pocketbase.PocketBase) *ScriptFlow {
 	sf, err := NewScriptFlow(app)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sf.app.Logger().Info("setup scriptflow scheduler")
+	sf.app.Logger().Debug("setup scriptflow scheduler")
 	sf.setupScheduler()
 
-	sf.app.Logger().Info("setup scriptflow API")
+	sf.app.Logger().Debug("setup scriptflow API")
 	sf.setupApi()
 
 	sf.MountFs()
+
+	return sf
 }
 
 func (sf *ScriptFlow) setupScheduler() {

@@ -12,6 +12,8 @@ before:
 
 builds:
   - binary: scriptflow
+    ldflags:
+      - -s -w -X main.Version={{ .Version }}
     env:
       - CGO_ENABLED=0
     flags:
