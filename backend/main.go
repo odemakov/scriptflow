@@ -26,7 +26,7 @@ func main() {
 	app.RootCmd.ParseFlags(os.Args[1:])
 
 	if showVersion {
-		fmt.Printf("Version: %s\n", Version)
+		fmt.Printf("scriptflow version %s\n", Version)
 		os.Exit(0)
 	}
 
@@ -144,7 +144,6 @@ func (sf *ScriptFlow) setupApi() {
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
 		e.Router.GET("/api/scriptflow/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
-		e.Router.GET("/api/scriptflow/task/{taskId}/run-once", sf.ApiTaskRun).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/stats", sf.ApiScriptFlowStats).Bind(apis.RequireAuth())
 		return e.Next()

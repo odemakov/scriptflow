@@ -7,6 +7,7 @@ import Identifier from './Identifier.vue';
 import IdentifierUrl from './IdentifierUrl.vue';
 import { useAuthStore } from '@/stores/AuthStore';
 import { useRunStore } from '@/stores/RunStore';
+import { useTaskStore } from '@/stores/TaskStore';
 import { useToastStore } from '@/stores/ToastStore';
 
 const props = defineProps<{
@@ -17,6 +18,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const useToasts = useToastStore()
 const useRuns = useRunStore()
+const useTask = useTaskStore()
 
 const lastRuns = computed(() => useRuns.getLastRuns[props.task.id])
 const lastRunStarted = computed(() => {
@@ -52,29 +54,35 @@ const gotoProject = () => {
 
 const runTask = async () => {
   runTaskButtonDisabled.value = true
-  const runOnceUrl = `/api/scriptflow/task/${props.task.id}/run-once`;
 
-  // set Autorization header with token
-  fetch(runOnceUrl, {
-    method: 'GET',
-    headers: {
-      'Authorization': `${auth.token}`,
-    }
-  })
-    .then(response => {
-      runTaskButtonDisabled.value = false
-      if (!response.ok) {
-        throw new Error(response.statusText);
-      }
-      return response; // Return the response if it's OK
+  const oldSchedule = props.task.schedule
+  try {
+    await useTask.updateTask(props.task.id, {
+      ...props.task,
+      schedule: '@every 1s',
     })
-    .catch((error: unknown) => {
-      // Handle any errors that occurred during the fetch or response handling
+    runTaskButtonDisabled.value = false
+  } catch (error: unknown) {
+    useToasts.addToast(
+      (error as Error).message,
+      'error',
+    )
+  }
+
+  // wait 2 seconds and set oldSchedule back
+  setTimeout(async () => {
+    try {
+      await useTask.updateTask(props.task.id, {
+        ...props.task,
+        schedule: oldSchedule,
+      })
+    } catch (error: unknown) {
       useToasts.addToast(
         (error as Error).message,
         'error',
-      );
-    });
+      )
+    }
+  }, 2000)
 }
 
 </script>

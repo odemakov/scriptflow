@@ -221,10 +221,10 @@ func (sf *ScriptFlow) buildMessageContext(nc NotificationContext) MessageContext
 	return MessageContext{
 		Header: sf.app.Settings().Meta.AppName,
 		Subject: fmt.Sprintf(
-			"[%s] %s <%s>",
+			"[%s] <%s> %s",
 			sf.app.Settings().Meta.AppName,
-			nc.Run.GetString("status"),
 			nc.Subscription.GetString("name"),
+			nc.Run.GetString("status"),
 		),
 		Item: MessageItem{
 			Command:  nc.Run.GetString("command"),
