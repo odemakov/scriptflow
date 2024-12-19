@@ -51,6 +51,7 @@ type ScriptFlowLocks struct {
 
 type ScriptFlow struct {
 	app       *pocketbase.PocketBase
+	config    *Config
 	scheduler gocron.Scheduler
 	sshPool   *sshrun.Pool
 	locks     *ScriptFlowLocks

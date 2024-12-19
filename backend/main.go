@@ -22,12 +22,21 @@ func main() {
 
 	// redefine pocketbase's --version flag
 	var showVersion bool
-	app.RootCmd.Flags().BoolVarP(&showVersion, "version", "v", false, "Show version information")
-	app.RootCmd.ParseFlags(os.Args[1:])
-
+	app.RootCmd.Flags().BoolVarP(&showVersion, "version", "v", false, "show version information")
 	if showVersion {
 		fmt.Printf("scriptflow version %s\n", Version)
 		os.Exit(0)
+	}
+
+	var configFilename string
+	app.RootCmd.Flags().StringVar(&configFilename, "config", "", "set config file")
+	app.RootCmd.ParseFlags(os.Args[1:])
+	// remove --config flag from os.Args, as Cobra is not happy about it
+	for i, arg := range os.Args {
+		if arg == "--config" {
+			os.Args = append(os.Args[:i], os.Args[i+2:]...)
+			break
+		}
 	}
 
 	// enable auto creation of migration files when making collection changes in the Dashboard
@@ -35,7 +44,16 @@ func main() {
 		Automigrate: app.IsDev(),
 	})
 
-	sf := initScriptFlow(app)
+	var config *Config
+	if configFilename != "" {
+		var err error
+		config, err = NewConfig(configFilename)
+		if err != nil {
+			log.Fatal("failed to open or read config file: ", err)
+		}
+	}
+
+	sf := initScriptFlow(app, config)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
@@ -46,8 +64,8 @@ func main() {
 	}
 }
 
-func initScriptFlow(app *pocketbase.PocketBase) *ScriptFlow {
-	sf, err := NewScriptFlow(app)
+func initScriptFlow(app *pocketbase.PocketBase, config *Config) *ScriptFlow {
+	sf, err := NewScriptFlow(app, config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,6 +84,11 @@ func initScriptFlow(app *pocketbase.PocketBase) *ScriptFlow {
 func (sf *ScriptFlow) setupScheduler() {
 	// schedule system tasks
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		// Insert/update database from config file
+		if sf.config != nil {
+			sf.UpdateFromConfig()
+		}
+
 		// mark all started tasks as interrupted, if any
 		sf.MarkAllRunningTasksAsInterrupted("app-started")
 
@@ -140,7 +163,7 @@ func (sf *ScriptFlow) setupScheduler() {
 }
 
 func (sf *ScriptFlow) setupApi() {
-	// Register WebSocket handler
+	// Register API handlers
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
 		e.Router.GET("/api/scriptflow/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)

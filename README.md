@@ -31,6 +31,10 @@ Extract it `tar -xzf scriptflow_Linux_x86_64.tar.gz`
 
 Run `./scriptflow --http 0.0.0.0:8090 --dev serve`
 
+It's possible do define projects, nodes and tasks in the config file, see `config-example.yml` file.
+
+Run `./scriptflow --http 0.0.0.0:8090 --dev --config config-example.yml serve`
+
 # Run as system service
 
 Create `/etc/systemd/system/scriptflow.service` file

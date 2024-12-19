@@ -1,0 +1,44 @@
+---
+
+projects:
+  - name: Project 1
+    slug: project1
+  - name: Project 2
+    slug: project2
+
+nodes:
+  - host: vm1
+    username: ubuntu
+    private_key: key1
+  - host: vm1
+    username: deployer
+    private_key: key2
+  - host: vm2
+    username: ubuntu
+  - host: vm3
+    username: ubuntu
+
+tasks:
+  - name: Task 1
+    slug: task-1
+    command: echo 'Hello, World!'
+    schedule: "*/5 * * * *"
+    node: vm1,ubuntu
+    project: project1
+    active: true
+    prepend_datetime: true
+  - name: Task 2
+    slug: task-2
+    command: echo 'Hello, World!'
+    schedule: "@every 10s"
+    node: vm2,ubuntu
+    project: project1
+    active: true
+    prepend_datetime: true
+  - name: Deploy
+    slug: deploy
+    command: /bin/deploy
+    schedule: "20 4 * * *"
+    node: vm1,deployer
+    project: project2
+    active: true

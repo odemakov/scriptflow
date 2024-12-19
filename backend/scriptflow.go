@@ -15,10 +15,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func NewScriptFlow(app *pocketbase.PocketBase) (*ScriptFlow, error) {
-	// create sf_logs directory
-	logsDir := filepath.Join(app.DataDir(), "..", "sf_logs")
-
+func NewScriptFlow(app *pocketbase.PocketBase, config *Config) (*ScriptFlow, error) {
 	// get home directory of current user
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -38,10 +35,11 @@ func NewScriptFlow(app *pocketbase.PocketBase) (*ScriptFlow, error) {
 
 	return &ScriptFlow{
 		app:       app,
+		config:    config,
 		sshPool:   sshPool,
 		scheduler: scheduler,
 		locks:     &ScriptFlowLocks{},
-		logsDir:   logsDir,
+		logsDir:   filepath.Join(app.DataDir(), "..", "sf_logs"),
 	}, nil
 }
 
