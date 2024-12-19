@@ -7,6 +7,7 @@ import NodeStatus from './NodeStatus.vue';
 
 const useNode = useNodeStore()
 const nodes = computed(() => useNode.getNodes)
+const nodeHost = (node: INode) => `${node.host} (${node.username})`
 
 onMounted(async () => {
   await useNode.fetchNodes()
@@ -30,9 +31,8 @@ onMounted(async () => {
             <Identifier :id="node.id" />
           </td>
           <td>
-            <Identifier :id="node.host" />
+            <Identifier :id="nodeHost(node)" />
           </td>
-          <td>{{ node.username }}</td>
           <td>
             <NodeStatus :node="node" />
           </td>
