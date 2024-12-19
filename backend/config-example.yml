@@ -15,8 +15,6 @@ nodes:
     private_key: key2
   - host: vm2
     username: ubuntu
-  - host: vm3
-    username: ubuntu
 
 tasks:
   - name: Task 1

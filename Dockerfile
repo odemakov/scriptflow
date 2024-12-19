@@ -64,7 +64,12 @@ COPY --from=dev-vm /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub
 COPY --from=dev-vm /root/.ssh/id_rsa /root/.ssh/id_rsa
 
 EXPOSE 8090
-CMD ["air", "--build.cmd", "go build -o scriptflow", "--build.bin", "./scriptflow serve --http 0.0.0.0:8090 --dev", "--build.exclude_dir", "pb_data,sf_logs,frontend/node_modules,../frontend/dist"]
+CMD [ \
+    "air", \
+    "--build.cmd", "go build -o scriptflow", \
+    "--build.bin", "./scriptflow serve --http 0.0.0.0:8090 --dev --config /app/config-example.yml", \
+    "--build.exclude_dir", "pb_data,sf_logs,frontend/node_modules,../frontend/dist" \
+]
 
 # Development Frontend
 FROM node:alpine AS dev-frontend

@@ -23,14 +23,15 @@ func main() {
 	// redefine pocketbase's --version flag
 	var showVersion bool
 	app.RootCmd.Flags().BoolVarP(&showVersion, "version", "v", false, "show version information")
+	var configFilename string
+	app.RootCmd.Flags().StringVar(&configFilename, "config", "", "set config file")
+	app.RootCmd.ParseFlags(os.Args[1:])
+
 	if showVersion {
 		fmt.Printf("scriptflow version %s\n", Version)
 		os.Exit(0)
 	}
 
-	var configFilename string
-	app.RootCmd.Flags().StringVar(&configFilename, "config", "", "set config file")
-	app.RootCmd.ParseFlags(os.Args[1:])
 	// remove --config flag from os.Args, as Cobra is not happy about it
 	for i, arg := range os.Args {
 		if arg == "--config" {
