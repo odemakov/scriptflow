@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router';
 import Command from './Command.vue';
 import Identifier from './Identifier.vue';
 import IdentifierUrl from './IdentifierUrl.vue';
-import { useAuthStore } from '@/stores/AuthStore';
 import { useRunStore } from '@/stores/RunStore';
 import { useTaskStore } from '@/stores/TaskStore';
 import { useToastStore } from '@/stores/ToastStore';
@@ -14,7 +13,6 @@ const props = defineProps<{
   task: ITask,
 }>()
 
-const auth = useAuthStore()
 const router = useRouter()
 const useToasts = useToastStore()
 const useRuns = useRunStore()
@@ -22,7 +20,7 @@ const useTask = useTaskStore()
 
 const lastRuns = computed(() => useRuns.getLastRuns[props.task.id])
 const lastRunStarted = computed(() => {
-  if (lastRuns.value) {
+  if (lastRuns.value && lastRuns.value.length > 0) {
     return lastRuns.value[0].status === CRunStatus.started
   } else {
     return false
