@@ -38,7 +38,7 @@ const router = createRouter({
               children: [
                 {
                   name: "task",
-                  path: ":taskSlug/history",
+                  path: ":taskId/history",
                   component: TaskView,
                   meta: {
                     title: "Task",
@@ -47,7 +47,7 @@ const router = createRouter({
                 },
                 {
                   name: "task-log",
-                  path: ":taskSlug/log",
+                  path: ":taskId/log",
                   component: TaskLogView,
                   meta: {
                     title: "Task",
@@ -55,7 +55,7 @@ const router = createRouter({
                   },
                 },
                 {
-                  path: ":taskSlug/:id",
+                  path: ":taskId/:id",
                   name: "run",
                   component: RunView,
                   meta: {

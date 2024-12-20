@@ -39,8 +39,8 @@ type ConfigNode struct {
 }
 
 type ConfigTask struct {
+	Id              string `yaml:"id"`
 	Name            string `yaml:"name"`
-	Slug            string `yaml:"slug"`
 	Command         string `yaml:"command"`
 	Schedule        string `yaml:"schedule"`
 	Node            string `yaml:"node"`
@@ -101,7 +101,7 @@ func (sf *ScriptFlow) UpdateFromConfig() error {
 func (sf *ScriptFlow) updateFromConfigProject() {
 	// insert or update projects
 	for _, project := range sf.config.Projects {
-		// skip empty name or slug
+		// skip empty id or name
 		if project.Id == "" || project.Name == "" {
 			sf.app.Logger().Warn("[config] project id or name is empty", slog.Any("project", project))
 			continue
@@ -152,34 +152,27 @@ func (sf *ScriptFlow) updateFromConfigNode() {
 }
 
 func (sf *ScriptFlow) updateFromConfigTaks() {
-	nodes, err := sf.createMapFromQuery("SELECT id, host, username FROM nodes", []string{"host", "username"})
-	if err != nil {
-		sf.app.Logger().Error("[config] failed to create nodes", slog.Any("error", err))
-		return
-	}
-
 	// insert or update tasks
 	for _, task := range sf.config.Tasks {
-		// skip empty name, slug, command, schedule, node, project
-		if task.Name == "" || task.Slug == "" || task.Command == "" || task.Schedule == "" || task.Node == "" || task.Project == "" {
-			sf.app.Logger().Warn("[config] task name, slug, command, schedule, node or project is empty", slog.Any("task", task))
+		// skip empty id, name, command, schedule, node, project
+		if task.Id == "" || task.Name == "" || task.Command == "" || task.Schedule == "" || task.Node == "" || task.Project == "" {
+			sf.app.Logger().Warn("[config] task id, name, command, schedule, node or project is empty", slog.Any("task", task))
 			continue
 		}
-		// check node exists in the map
-		if _, ok := nodes[task.Node]; !ok {
-			sf.app.Logger().Warn("[config] node not found for task", slog.Any("task", task))
+		if !isValidUUID(task.Id) {
+			sf.app.Logger().Warn("[config] task id is not a valid UUID", slog.Any("node", task))
 			continue
 		}
 		err := sf.insertOrUpdate(CollectionTasks, dbx.Params{
-			"slug":             task.Slug,
+			"id":               task.Id,
 			"name":             task.Name,
 			"command":          task.Command,
 			"schedule":         task.Schedule,
-			"node":             nodes[task.Node],
+			"node":             task.Node,
 			"project":          task.Project,
 			"active":           task.Active,
 			"prepend_datetime": task.PrependDatetime,
-		}, "slug,project", "name", "command", "schedule", "node", "active", "prepend_datetime")
+		}, "id", "name", "command", "schedule", "node", "project", "active", "prepend_datetime")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update task", slog.Any("error", err))
 		}
@@ -189,7 +182,7 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 func (sf *ScriptFlow) updateFromConfigChannels() {
 	// insert or update channels
 	for _, channel := range sf.config.Channels {
-		// skip empty name or slug
+		// skip empty name or type
 		if channel.Name == "" || channel.Type == "" {
 			sf.app.Logger().Warn("[config] channel name or type is empty", slog.Any("channel", channel))
 			continue

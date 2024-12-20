@@ -15,8 +15,8 @@ const useRuns = useRunStore()
 const route = useRoute()
 const router = useRouter()
 const runId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
-const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
-const taskSlug = Array.isArray(route.params.taskSlug) ? route.params.taskSlug[0] : route.params.taskSlug
+const projectId = Array.isArray(route.params.projectId) ? route.params.projectId[0] : route.params.projectId
+const taskId = Array.isArray(route.params.taskId) ? route.params.taskId[0] : route.params.taskId
 
 const run = computed(() => useRuns.getRun)
 
@@ -32,8 +32,8 @@ onMounted(async () => {
 })
 
 const crumbs = [
-  { to: () => router.push({ name: 'project', params: { projectSlug: projectSlug } }), label: projectSlug } as ICrumb,
-  { to: () => router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } }), label: taskSlug } as ICrumb,
+  { to: () => router.push({ name: 'project', params: { projectId: projectId } }), label: projectId } as ICrumb,
+  { to: () => router.push({ name: 'task', params: { projectId: projectId, taskId: taskId } }), label: taskId } as ICrumb,
   { label: runId } as ICrumb,
 ]
 

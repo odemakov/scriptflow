@@ -15,14 +15,14 @@ const useToasts = useToastStore()
 const useTasks = useTaskStore()
 const router = useRouter()
 const route = useRoute()
-const taskSlug = Array.isArray(route.params.taskSlug) ? route.params.taskSlug[0] : route.params.taskSlug
+const taskId = Array.isArray(route.params.taskId) ? route.params.taskId[0] : route.params.taskId
 const projectId = Array.isArray(route.params.projectId) ? route.params.projectId[0] : route.params.projectId
 
 const task = computed(() => useTasks.getTask)
 
 onMounted(async () => {
   try {
-    await useTasks.fetchTask(taskSlug)
+    await useTasks.fetchTask(taskId)
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
@@ -32,12 +32,12 @@ onMounted(async () => {
 })
 
 const gotoTaskLog = () => {
-  router.push({ name: 'task-log', params: { projectId: projectId, taskSlug: taskSlug } })
+  router.push({ name: 'task-log', params: { projectId: projectId, taskId: taskId } })
 }
 
 const crumbs = [
   { to: () => router.push({ name: 'project', params: { projectId: projectId } }), label: projectId } as ICrumb,
-  { label: taskSlug } as ICrumb,
+  { label: taskId } as ICrumb,
 ]
 
 </script>

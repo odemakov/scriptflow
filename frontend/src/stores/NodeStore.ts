@@ -22,10 +22,10 @@ export const useNodeStore = defineStore("nodes", () => {
     nodes.value = records.items;
   }
 
-  async function fetchNode(nodeSlug: string) {
+  async function fetchNode(nodeId: string) {
     const record = await pb
       .collection(CCollectionName.nodes)
-      .getFirstListItem<INode>(`slug="${nodeSlug}"`);
+      .getFirstListItem<INode>(`id="${nodeId}"`);
     node.value = record;
   }
 

@@ -24,10 +24,10 @@ export const useTaskStore = defineStore("tasks", () => {
       });
     tasks.value = records.items;
   }
-  async function fetchTask(taskSlug: string) {
+  async function fetchTask(taskId: string) {
     const record = await pb
       .collection(CCollectionName.tasks)
-      .getFirstListItem<IProject>(`slug="${taskSlug}"`, {
+      .getFirstListItem<IProject>(`id="${taskId}"`, {
         expand: "node,project",
       });
     task.value = record;

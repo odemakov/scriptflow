@@ -47,7 +47,7 @@ onUnmounted(() => {
 })
 
 const gotoProject = () => {
-  router.push({ name: 'project', params: { projectSlug: props.task?.expand?.project?.slug } })
+  router.push({ name: 'project', params: { projectId: props.task?.expand?.project?.id } })
 }
 
 const runTask = async () => {

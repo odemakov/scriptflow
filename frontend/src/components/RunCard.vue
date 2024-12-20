@@ -11,7 +11,7 @@ const props = defineProps<{
 const router = useRouter()
 
 const gotoTask = () => {
-  router.push({ name: 'task', params: { projectSlug: props.run?.expand?.project?.slug, taskSlug: props.run?.expand?.task?.slug } })
+  router.push({ name: 'task', params: { projectId: props.run?.expand?.project?.id, taskId: props.run?.expand?.task?.id } })
 }
 
 </script>

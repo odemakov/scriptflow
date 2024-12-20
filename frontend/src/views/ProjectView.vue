@@ -92,15 +92,15 @@ onUnmounted(() => {
   useRuns.unsubscribe()
 })
 
-const gotoTask = (taskSlug: string) => {
-  router.push({ name: 'task', params: { projectId: projectId, taskSlug: taskSlug } })
+const gotoTask = (taskId: string) => {
+  router.push({ name: 'task', params: { projectId: projectId, taskId: taskId } })
 }
 
 const gotoRun = (run: IRun) => {
   if (run.status === CRunStatus.started) {
-    router.push({ name: 'task-log', params: { projectId: projectId, taskSlug: run.expand.task.slug } })
+    router.push({ name: 'task-log', params: { projectId: projectId, taskId: run.expand.task.id } })
   } else {
-    router.push({ name: 'run', params: { projectId: projectId, taskSlug: run.expand.task.slug, id: run.id } })
+    router.push({ name: 'run', params: { projectId: projectId, taskId: run.expand.task.id, id: run.id } })
   }
 }
 
@@ -138,7 +138,6 @@ const crumbs = [
         <tr class="">
           <th class=""></th>
           <th class="">id</th>
-          <th class="">slug</th>
           <th class="">schedule</th>
           <th class="">command</th>
           <th class="">run id</th>
@@ -158,11 +157,7 @@ const crumbs = [
           </td>
 
           <td>
-            <Identifier :id="task.id" />
-          </td>
-
-          <td>
-            <IdentifierUrl @click="gotoTask(task.slug)" :id="task.slug" />
+            <IdentifierUrl @click="gotoTask(task.id)" :id="task.id" />
           </td>
 
           <td>

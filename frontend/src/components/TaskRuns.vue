@@ -19,9 +19,9 @@ const lastRuns = computed(() => useRuns.getLastRuns[props.task.id])
 
 const gotoRun = (run: IRun) => {
   if (run.status === CRunStatus.started) {
-    router.push({ name: 'task-log', params: { projectSlug: props.task?.expand?.project.slug, taskSlug: props.task.slug } })
+    router.push({ name: 'task-log', params: { projectId: props.task?.expand?.project.id, taskId: props.task.id } })
   } else {
-    router.push({ name: 'run', params: { projectSlug: props.task?.expand?.project.slug, id: run.id } })
+    router.push({ name: 'run', params: { projectId: props.task?.expand?.project.id, id: run.id } })
   }
 }
 

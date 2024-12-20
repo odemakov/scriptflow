@@ -27,38 +27,37 @@ nodes:
     host: vm2
     username: root
 
-# Task has unique key slug + project.
 tasks:
-  - name: Task 1
-    slug: task-1
+  - id: task-1
+    name: Task 1
     project: project-1
     command: echo 'Hello, World!'
     schedule: "*/5 * * * *"
-    node: vm1,root
+    node: vm1-root
     active: true
     prepend_datetime: true
-  - name: Random task 1
-    slug: random-task-1
+  - id: random-task-1
+    name: Random task 1
     project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
     schedule: "@every 1s"
-    node: vm1,root
+    node: vm1-root
     active: true
     prepend_datetime: true
-  - name: Random task 2
-    slug: random-task-2
+  - id: random-task-2
+    name: Random task 2
     project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
     schedule: "@every 1m"
-    node: vm2,root
+    node: vm2-root
     active: false
     prepend_datetime: true
-  - name: Deploy
-    slug: deploy
+  - id: deploy
+    name: Deploy
     project: project-2
     command: /bin/deploy
     schedule: "20 4 * * *"
-    node: vm1,deployer
+    node: vm1-deployer
     active: true
 
 channels:
