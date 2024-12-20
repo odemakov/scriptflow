@@ -15,7 +15,7 @@ const useTasks = useTaskStore()
 const router = useRouter()
 const route = useRoute()
 const taskSlug = Array.isArray(route.params.taskSlug) ? route.params.taskSlug[0] : route.params.taskSlug
-const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
+const projectId = Array.isArray(route.params.projectId) ? route.params.projectId[0] : route.params.projectId
 
 const task = computed(() => useTasks.getTask)
 
@@ -31,11 +31,11 @@ onMounted(async () => {
 })
 
 const gotoTaskHistory = () => {
-  router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } })
+  router.push({ name: 'task', params: { projectId: projectId, taskSlug: taskSlug } })
 }
 
 const crumbs = [
-  { to: () => router.push({ name: 'project', params: { projectSlug: projectSlug } }), label: projectSlug } as ICrumb,
+  { to: () => router.push({ name: 'project', params: { projectId: projectId } }), label: projectId } as ICrumb,
   { label: taskSlug } as ICrumb,
 ]
 

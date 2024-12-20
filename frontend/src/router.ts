@@ -22,7 +22,7 @@ const router = createRouter({
       path: "/app/",
       children: [
         {
-          path: ":projectSlug",
+          path: ":projectId",
           children: [
             {
               path: "",

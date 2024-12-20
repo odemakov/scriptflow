@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -21,8 +22,8 @@ type Config struct {
 }
 
 type ConfigProject struct {
+	Id     string              `yaml:"id"`
 	Name   string              `yaml:"name"`
-	Slug   string              `yaml:"slug"`
 	Config ConfigProjectConfig `yaml:"config"`
 }
 
@@ -31,6 +32,7 @@ type ConfigProjectConfig struct {
 }
 
 type ConfigNode struct {
+	Id         string `yaml:"id"`
 	Host       string `yaml:"host"`
 	Username   string `yaml:"username"`
 	PrivateKey string `yaml:"private_key"`
@@ -100,8 +102,12 @@ func (sf *ScriptFlow) updateFromConfigProject() {
 	// insert or update projects
 	for _, project := range sf.config.Projects {
 		// skip empty name or slug
-		if project.Name == "" || project.Slug == "" {
-			sf.app.Logger().Warn("[config] project name or slug is empty", slog.Any("project", project))
+		if project.Id == "" || project.Name == "" {
+			sf.app.Logger().Warn("[config] project id or name is empty", slog.Any("project", project))
+			continue
+		}
+		if !isValidUUID(project.Id) {
+			sf.app.Logger().Warn("[config] project id is not a valid UUID", slog.Any("project", project))
 			continue
 		}
 		// format config as JSON string
@@ -111,10 +117,10 @@ func (sf *ScriptFlow) updateFromConfigProject() {
 			continue
 		}
 		err = sf.insertOrUpdate(CollectionProjects, dbx.Params{
-			"slug":   project.Slug,
+			"id":     project.Id,
 			"name":   project.Name,
 			"config": string(configJSON),
-		}, "slug", "name", "config")
+		}, "id", "name", "config")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update project", slog.Any("error", err))
 		}
@@ -125,15 +131,20 @@ func (sf *ScriptFlow) updateFromConfigNode() {
 	// insert or update nodes
 	for _, node := range sf.config.Nodes {
 		// skip empty host, username
-		if node.Host == "" || node.Username == "" {
-			sf.app.Logger().Warn("[config] node host or username is empty", slog.Any("node", node))
+		if node.Id == "" || node.Host == "" || node.Username == "" {
+			sf.app.Logger().Warn("[config] node id, host or username is empty", slog.Any("node", node))
+			continue
+		}
+		if !isValidUUID(node.Id) {
+			sf.app.Logger().Warn("[config] node id is not a valid UUID", slog.Any("node", node))
 			continue
 		}
 		err := sf.insertOrUpdate(CollectionNodes, dbx.Params{
+			"id":          node.Id,
 			"host":        node.Host,
 			"username":    node.Username,
 			"private_key": node.PrivateKey,
-		}, "host,username", "private_key")
+		}, "id", "host", "username", "private_key")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update node", slog.Any("error", err))
 		}
@@ -141,12 +152,6 @@ func (sf *ScriptFlow) updateFromConfigNode() {
 }
 
 func (sf *ScriptFlow) updateFromConfigTaks() {
-	projects, err := sf.createMapFromQuery("SELECT id, slug FROM projects", []string{"slug"})
-	if err != nil {
-		sf.app.Logger().Error("[config] failed to select projects", slog.Any("error", err))
-		return
-	}
-
 	nodes, err := sf.createMapFromQuery("SELECT id, host, username FROM nodes", []string{"host", "username"})
 	if err != nil {
 		sf.app.Logger().Error("[config] failed to create nodes", slog.Any("error", err))
@@ -165,18 +170,13 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 			sf.app.Logger().Warn("[config] node not found for task", slog.Any("task", task))
 			continue
 		}
-		// check project exists in the map
-		if _, ok := projects[task.Project]; !ok {
-			sf.app.Logger().Warn("[config] project not found for task", slog.Any("task", task))
-			continue
-		}
 		err := sf.insertOrUpdate(CollectionTasks, dbx.Params{
 			"slug":             task.Slug,
 			"name":             task.Name,
 			"command":          task.Command,
 			"schedule":         task.Schedule,
 			"node":             nodes[task.Node],
-			"project":          projects[task.Project],
+			"project":          task.Project,
 			"active":           task.Active,
 			"prepend_datetime": task.PrependDatetime,
 		}, "slug,project", "name", "command", "schedule", "node", "active", "prepend_datetime")
@@ -343,4 +343,9 @@ func placeholders(params dbx.Params) []string {
 		placeholders[i] = "{:" + k + "}"
 	}
 	return placeholders
+}
+
+func isValidUUID(s string) bool {
+	re := regexp.MustCompile(`^[a-z][a-z0-9-]{5,}$`)
+	return re.MatchString(s)
 }

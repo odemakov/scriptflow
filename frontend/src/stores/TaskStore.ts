@@ -14,13 +14,13 @@ export const useTaskStore = defineStore("tasks", () => {
   const getTask = computed(() => task.value);
 
   // methods
-  async function fetchTasks(projectSlug: string) {
+  async function fetchTasks(projectId: string) {
     const records = await pb
       .collection(CCollectionName.tasks)
       .getList<ITask>(1, 100, {
         expand: "node,project",
         sort: "-active,-created",
-        filter: pb.filter("project.slug = {:slug}", { slug: projectSlug }),
+        filter: pb.filter("project.id={:id}", { id: projectId }),
       });
     tasks.value = records.items;
   }

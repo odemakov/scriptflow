@@ -24,7 +24,7 @@ const useProjects = useProjectStore()
 const useTasks = useTaskStore()
 const useRuns = useRunStore()
 
-const projectSlug = Array.isArray(route.params.projectSlug) ? route.params.projectSlug[0] : route.params.projectSlug
+const projectId = Array.isArray(route.params.projectId) ? route.params.projectId[0] : route.params.projectId
 const tasks = computed(() => useTasks.getTasks)
 const lastRuns = computed(() => useRuns.getLastRuns)
 const taskLastRun = (taskId: string) => {
@@ -37,7 +37,7 @@ const taskLastRun = (taskId: string) => {
 
 const fetchProject = async () => {
   try {
-    await useProjects.fetchProject(projectSlug)
+    await useProjects.fetchProject(projectId)
   } catch (error: unknown) {
     useToasts.addToast(
       (error as Error).message,
@@ -48,7 +48,7 @@ const fetchProject = async () => {
 
 const fetchTasksAndSubsribe = async () => {
   try {
-    await useTasks.fetchTasks(projectSlug)
+    await useTasks.fetchTasks(projectId)
     useTasks.subscribe()
   } catch (error: unknown) {
     useToasts.addToast(
@@ -93,14 +93,14 @@ onUnmounted(() => {
 })
 
 const gotoTask = (taskSlug: string) => {
-  router.push({ name: 'task', params: { projectSlug: projectSlug, taskSlug: taskSlug } })
+  router.push({ name: 'task', params: { projectId: projectId, taskSlug: taskSlug } })
 }
 
 const gotoRun = (run: IRun) => {
   if (run.status === CRunStatus.started) {
-    router.push({ name: 'task-log', params: { projectSlug: projectSlug, taskSlug: run.expand.task.slug } })
+    router.push({ name: 'task-log', params: { projectId: projectId, taskSlug: run.expand.task.slug } })
   } else {
-    router.push({ name: 'run', params: { projectSlug: projectSlug, taskSlug: run.expand.task.slug, id: run.id } })
+    router.push({ name: 'run', params: { projectId: projectId, taskSlug: run.expand.task.slug, id: run.id } })
   }
 }
 
@@ -122,7 +122,7 @@ const toggleTaskActive = async (taskId: string) => {
 }
 
 const crumbs = [
-  { label: projectSlug } as ICrumb,
+  { label: projectId } as ICrumb,
 ]
 
 </script>

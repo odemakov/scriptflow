@@ -3,14 +3,13 @@ import { computed, onMounted } from 'vue'
 import router from '@/router';
 
 import { useProjectStore } from '@/stores/ProjectStore';
-import Identifier from './Identifier.vue';
 import IdentifierUrl from './IdentifierUrl.vue';
 
 const useProject = useProjectStore()
 const projects = computed(() => useProject.getProjects)
 
-const gotoTasks = (projectSlug: string) => {
-  router.push({ name: 'project', params: { projectSlug: projectSlug } })
+const gotoTasks = (projectId: string) => {
+  router.push({ name: 'project', params: { projectId: projectId } })
 }
 
 onMounted(async () => {
@@ -24,7 +23,6 @@ onMounted(async () => {
       <thead>
         <tr>
           <th>id</th>
-          <th>slug</th>
           <th>name</th>
           <th>config</th>
         </tr>
@@ -32,10 +30,7 @@ onMounted(async () => {
       <tbody>
         <tr v-for="project in projects" :key="project.id">
           <td>
-            <Identifier :id="project.id" />
-          </td>
-          <td>
-            <IdentifierUrl :id="project.slug" @click="gotoTasks(project.slug)" />
+            <IdentifierUrl :id="project.id" @click="gotoTasks(project.id)" />
           </td>
           <td>{{ project.name }}</td>
           <td>{{ project.config }}</td>

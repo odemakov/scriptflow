@@ -22,10 +22,10 @@ export const useProjectStore = defineStore("projects", () => {
     projects.value = records.items;
   }
 
-  async function fetchProject(projectSlug: string) {
+  async function fetchProject(projectId: string) {
     const record = await pb
       .collection(CCollectionName.projects)
-      .getFirstListItem<IProject>(`slug="${projectSlug}"`);
+      .getFirstListItem<IProject>(`id="${projectId}"`);
     project.value = record;
   }
 

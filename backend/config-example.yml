@@ -1,13 +1,14 @@
 ---
 
-# Unique key is the slug
+# valid id: only lowercase letters, starts with letter a-z, contains only a-z0-9 and -, has at least 6 chars
+
 projects:
-  - name: Project 1
-    slug: project-1
+  - id: project-1
+    name: Project 1
     config:
       logs_max_days: 7
-  - name: Project 2
-    slug: project-2
+  - id: project-2
+    name: Project 2
     config:
       logs_max_days: 30
 
@@ -15,12 +16,15 @@ projects:
 # with the same host but different username. This is why in the tasks we
 # have to specify the node as "host,username"
 nodes:
-  - host: vm1
+  - id: vm1-root
+    host: vm1
     username: root
-  - host: vm1
+  - id: vm1-deployer
+    host: vm1
     username: deployer
     private_key: key1
-  - host: vm2
+  - id: vm2-root
+    host: vm2
     username: root
 
 # Task has unique key slug + project.
@@ -37,7 +41,7 @@ tasks:
     slug: random-task-1
     project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
-    schedule: "@every 1m"
+    schedule: "@every 1s"
     node: vm1,root
     active: true
     prepend_datetime: true
