@@ -61,20 +61,32 @@ tasks:
     active: true
 
 channels:
-  - name: Admin email
+  - id: admin-email
+    name: Admin email
     type: email
     config:
       to: admin@example.com
-  - name: Slack
+  - id: slack-to-group
+    name: Slact to group
     type: slack
     config:
       token: xoxb--
       channel: "#scriptflow"
 
 subscriptions:
-  - name: Failed tasks
+  - id: failed-task-1
+    name: Failed task 1
     task: task-1
-    channel: Admin email
+    channel: admin-email
+    events:
+      - error
+      - internal_error
+    threshold: 1
+    active: true
+  - id: failed-task-2
+    name: Failed task 2
+    task: task-2
+    channel: admin-email
     events:
       - error
       - internal_error

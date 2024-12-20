@@ -3,6 +3,7 @@ import { computed, watch } from 'vue';
 
 import { useSubscriptionStore } from '@/stores/SubscriptionStore';
 import { useToastStore } from '@/stores/ToastStore';
+import { RunStatusClass } from "@/lib/helpers";
 
 const props = defineProps<{
   task: ITask,
@@ -32,6 +33,7 @@ const toggleSubscriptionActive = async (subscriptionId: string) => {
     }
   }
 }
+
 </script>
 
 <template>
@@ -49,9 +51,13 @@ const toggleSubscriptionActive = async (subscriptionId: string) => {
               {{ subscription.name }}
             </td>
             <td>
-              <li v-for="event in subscription.events" :key="event">
+              {{ subscription.threshold }}
+            </td>
+            <td>
+              <span v-for="event in subscription.events" :key="event" class="text-sm badge-sm"
+                :class="RunStatusClass(event)">
                 {{ event }}
-              </li>
+              </span>
             </td>
           </tr>
         </tbody>

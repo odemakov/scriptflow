@@ -50,6 +50,7 @@ type ConfigTask struct {
 }
 
 type ConfigChannel struct {
+	Id     string              `yaml:"id"`
 	Name   string              `yaml:"name"`
 	Type   string              `yaml:"type"`
 	Config ConfigChannelConfig `yaml:"config"`
@@ -62,6 +63,7 @@ type ConfigChannelConfig struct {
 }
 
 type ConfigSubscriptions struct {
+	Id        string   `yaml:"id"`
 	Name      string   `yaml:"name"`
 	Task      string   `yaml:"task"`
 	Channel   string   `yaml:"channel"`
@@ -111,7 +113,7 @@ func (sf *ScriptFlow) updateFromConfigProject() {
 			continue
 		}
 		// format config as JSON string
-		configJSON, err := json.MarshalIndent(project.Config, "", "  ")
+		configJSON, err := json.Marshal(project.Config)
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to marshal project config to JSON", slog.Any("error", err))
 			continue
@@ -120,7 +122,7 @@ func (sf *ScriptFlow) updateFromConfigProject() {
 			"id":     project.Id,
 			"name":   project.Name,
 			"config": string(configJSON),
-		}, "id", "name", "config")
+		}, "name", "config")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update project", slog.Any("error", err))
 		}
@@ -144,7 +146,7 @@ func (sf *ScriptFlow) updateFromConfigNode() {
 			"host":        node.Host,
 			"username":    node.Username,
 			"private_key": node.PrivateKey,
-		}, "id", "host", "username", "private_key")
+		}, "host", "username", "private_key")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update node", slog.Any("error", err))
 		}
@@ -160,7 +162,7 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 			continue
 		}
 		if !isValidUUID(task.Id) {
-			sf.app.Logger().Warn("[config] task id is not a valid UUID", slog.Any("node", task))
+			sf.app.Logger().Warn("[config] task id is not a valid UUID", slog.Any("task", task))
 			continue
 		}
 		err := sf.insertOrUpdate(CollectionTasks, dbx.Params{
@@ -172,7 +174,7 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 			"project":          task.Project,
 			"active":           task.Active,
 			"prepend_datetime": task.PrependDatetime,
-		}, "id", "name", "command", "schedule", "node", "project", "active", "prepend_datetime")
+		}, "name", "command", "schedule", "node", "project", "active", "prepend_datetime")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update task", slog.Any("error", err))
 		}
@@ -182,9 +184,13 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 func (sf *ScriptFlow) updateFromConfigChannels() {
 	// insert or update channels
 	for _, channel := range sf.config.Channels {
-		// skip empty name or type
-		if channel.Name == "" || channel.Type == "" {
-			sf.app.Logger().Warn("[config] channel name or type is empty", slog.Any("channel", channel))
+		// skip empty id, name or type
+		if channel.Id == "" || channel.Name == "" || channel.Type == "" {
+			sf.app.Logger().Warn("[config] channel id, name or type is empty", slog.Any("channel", channel))
+			continue
+		}
+		if !isValidUUID(channel.Id) {
+			sf.app.Logger().Warn("[config] channel id is not a valid UUID", slog.Any("channel", channel))
 			continue
 		}
 		if channel.Type != ChannelTypeSlack && channel.Type != ChannelTypeEmail {
@@ -192,12 +198,13 @@ func (sf *ScriptFlow) updateFromConfigChannels() {
 			continue
 		}
 		// format config as JSON string
-		configJSON, err := json.MarshalIndent(channel.Config, "", "  ")
+		configJSON, err := json.Marshal(channel.Config)
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to marshal channel config to JSON", slog.Any("error", err))
 			continue
 		}
 		err = sf.insertOrUpdate(CollectionChannels, dbx.Params{
+			"id":     channel.Id,
 			"name":   channel.Name,
 			"type":   channel.Type,
 			"config": string(configJSON),
@@ -209,110 +216,70 @@ func (sf *ScriptFlow) updateFromConfigChannels() {
 }
 
 func (sf *ScriptFlow) updateFromConfigSubscriptions() {
-	tasks, err := sf.createMapFromQuery("SELECT id, slug FROM tasks", []string{"slug"})
-	if err != nil {
-		sf.app.Logger().Error("[config] failed to select tasks", slog.Any("error", err))
-		return
-	}
-
-	channels, err := sf.createMapFromQuery("SELECT id, name FROM channels", []string{"name"})
-	if err != nil {
-		sf.app.Logger().Error("[config] failed to select channels", slog.Any("error", err))
-		return
-	}
+	events := []string{RunStatusStarted, RunStatusError, RunStatusCompleted, RunStatusInterrupted, RunStatusInternalError}
 
 	// insert or update subscriptions
 	for _, subscription := range sf.config.Subscriptions {
-		// skip empty name, task or channel
-		if subscription.Name == "" || subscription.Task == "" || subscription.Channel == "" {
-			sf.app.Logger().Warn("[config] subscription name, task or channel is empty", slog.Any("subscription", subscription))
+		// skip empty name, channel
+		if subscription.Id == "" || subscription.Name == "" || subscription.Channel == "" || subscription.Task == "" {
+			sf.app.Logger().Warn("[config] subscription id, name, channel or task is empty", slog.Any("subscription", subscription))
 			continue
 		}
-		/* check event is in
-		   RunStatusStarted       = "started"
-		   RunStatusError         = "error"
-		   RunStatusCompleted     = "completed"
-		   RunStatusInterrupted   = "interrupted"
-		   RunStatusInternalError = "internal_error"
-		*/
-		var events []string
-		if subscription.Events != nil {
-			for _, event := range subscription.Events {
-				if event != RunStatusStarted && event != RunStatusError && event != RunStatusCompleted && event != RunStatusInterrupted && event != RunStatusInternalError {
-					sf.app.Logger().Warn("[config] subscription event is not supported", slog.Any("subscription", subscription))
-				} else {
-					events = append(events, event)
-				}
-			}
+
+		if subscription.Events == nil {
+			sf.app.Logger().Warn("[config] subscription events is empty", slog.Any("subscription", subscription))
+			continue
 		}
-		// format events to JSON array
-		eventsJSON, err := json.MarshalIndent(events, "", "  ")
+		eventsList, err := sf.subscriptionFilterOut(&subscription.Events, &events)
 		if err != nil {
-			sf.app.Logger().Error("[config] failed to marshal subscription events to JSON", slog.Any("error", err))
+			sf.app.Logger().Warn("[config] subscription events error", slog.Any("error", err), slog.Any("subscription", subscription))
 			continue
 		}
 
 		err = sf.insertOrUpdate(CollectionSubscriptions, dbx.Params{
+			"id":        subscription.Id,
 			"name":      subscription.Name,
-			"task":      tasks[subscription.Task],
-			"channel":   channels[subscription.Channel],
-			"events":    string(eventsJSON),
+			"task":      subscription.Task,
+			"channel":   subscription.Channel,
+			"events":    string(eventsList),
 			"threshold": subscription.Threshold,
 			"active":    subscription.Active,
-		}, "name,task,channel", "threshold", "active")
+		}, "name", "task", "channel", "threshold", "active")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update subscription", slog.Any("error", err))
 		}
 	}
 }
 
-// This function creates a map from the query result
-// map value is the first column of the query
-// map key is the concatenation of the rest of the columns
-//
-// For query SELECT id, host, username FROM nodes
-// returns map[node.host+","+node.username] = node.id
-func (sf *ScriptFlow) createMapFromQuery(queryStr string, keyCols []string) (map[string]string, error) {
-	result := make(map[string]string)
-	query := sf.app.DB().NewQuery(queryStr)
-	rows, err := query.Rows()
+func (sf *ScriptFlow) subscriptionFilterOut(configValues *[]string, correctValues *[]string) ([]byte, error) {
+	var validValues []string
+	for _, configValue := range *configValues {
+		for _, correctValue := range *correctValues {
+			if configValue == correctValue {
+				validValues = append(validValues, configValue)
+				break
+			}
+		}
+	}
+	// format result to JSON array
+	res, err := json.Marshal(validValues)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var id string
-		cols := make([]interface{}, len(keyCols)+1)
-		cols[0] = &id
-		for i := range keyCols {
-			var col string
-			cols[i+1] = &col
-		}
-		err := rows.Scan(cols...)
-		if err != nil {
-			return nil, err
-		}
-		keys := make([]string, len(keyCols))
-		for i := range keyCols {
-			keys[i] = *(cols[i+1].(*string))
-		}
-		result[strings.Join(keys, ",")] = id
-	}
-	return result, nil
+	return res, nil
 }
 
-func (sf *ScriptFlow) insertOrUpdate(table string, params dbx.Params, conflictColumns string, updateColumns ...string) error {
+func (sf *ScriptFlow) insertOrUpdate(table string, params dbx.Params, updateColumns ...string) error {
 	setClause := make([]string, len(updateColumns))
 	for i, col := range updateColumns {
 		setClause[i] = fmt.Sprintf("%s={:%s}", col, col)
 	}
 
 	query := sf.app.DB().NewQuery(fmt.Sprintf(
-		`INSERT INTO %s (%s,created,updated) VALUES (%s,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON CONFLICT (%s) DO UPDATE SET %s,updated=CURRENT_TIMESTAMP`,
+		`INSERT INTO %s (%s,created,updated) VALUES (%s,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON CONFLICT (id) DO UPDATE SET %s,updated=CURRENT_TIMESTAMP`,
 		table,
 		strings.Join(keys(params), ","),
 		strings.Join(placeholders(params), ","),
-		conflictColumns,
 		strings.Join(setClause, ","),
 	))
 	query.Bind(params)

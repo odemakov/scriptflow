@@ -6,7 +6,6 @@ import { useToastStore } from '@/stores/ToastStore';
 import { useTaskStore } from '@/stores/TaskStore';
 import { useRunStore } from '@/stores/RunStore';
 
-import Identifier from '@/components/Identifier.vue';
 import IdentifierUrl from '@/components/IdentifierUrl.vue';
 import Command from '@/components/Command.vue';
 import RunStatus from '@/components/RunStatus.vue';

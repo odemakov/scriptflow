@@ -28,9 +28,10 @@ const lastRunStarted = computed(() => {
 })
 // this variable is used to disable the run button when a run is in progress or the task is inactive
 // we can't fully rely on the last run status because it's updated with small delay
-const runTaskButtonDisabled = ref(!props.task.active)
+const runTaskButtonDisabled = ref(false)
 
 watch(() => props.task, async () => {
+  runTaskButtonDisabled.value = lastRunStarted.value || !props.task.active
   try {
     await useRuns.fetchLastRuns(props.task.id)
     useRuns.subscribe()

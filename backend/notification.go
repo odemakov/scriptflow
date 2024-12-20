@@ -80,7 +80,7 @@ func (sf *ScriptFlow) createNotification(subscription *SubscriptionItem, run *co
 	}
 }
 
-// Select {threshold} most recent runs newer than {subscriptio.notified}
+// Select {threshold} most recent runs newer than {subscription.notified}
 // return count of runs with status in {subscription.events}
 func retrieveConsecutiveRunsCount(db dbx.Builder, subscription SubscriptionItem) (int, error) {
 	// SELECT id FROM runs
@@ -128,8 +128,8 @@ func retrieveSubscriptionsForRun(db dbx.Builder, run *RunItem) ([]SubscriptionIt
 		From(CollectionSubscriptions).
 		Join("JOIN", "json_each(subscriptions.events) AS je", dbx.HashExp{"je.value": run.Status}).
 		Where(dbx.HashExp{
-			"task":   run.Task,
 			"active": true,
+			"task":   run.Task,
 		})
 
 	// Execute the query and fetch the results
@@ -207,14 +207,14 @@ func (sf *ScriptFlow) buildMessageContext(nc NotificationContext) MessageContext
 	taskUrl := fmt.Sprintf(
 		"%s/app/%s/%s/history",
 		sf.app.Settings().Meta.AppURL,
-		nc.Project.GetString("slug"),
-		nc.Task.GetString("slug"),
+		nc.Project.GetString("id"),
+		nc.Task.GetString("id"),
 	)
 	runUrl := fmt.Sprintf(
 		"%s/app/%s/%s/%s",
 		sf.app.Settings().Meta.AppURL,
-		nc.Project.GetString("slug"),
-		nc.Task.GetString("slug"),
+		nc.Project.GetString("id"),
+		nc.Task.GetString("id"),
 		nc.Run.GetString("id"),
 	)
 

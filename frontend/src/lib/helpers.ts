@@ -57,20 +57,20 @@ function Seconds2human(seconds: number): string {
   }
 }
 
-function RunStatusColor(status: string): string {
+function RunStatusClass(status: string): string {
   switch (status) {
     case CRunStatus.completed:
-      return "text-success";
+      return "badge badge-success bg-opacity-60";
     case CRunStatus.started:
-      return "text-info";
+      return "badge badge-info bg-opacity-60";
     case CRunStatus.error:
     case CRunStatus.internal_error:
-      return "text-error";
+      return "badge badge-error bg-opacity-60";
     case CRunStatus.interrupted:
-      return "text-warning";
+      return "badge badge-warning bg-opacity-60";
     default:
       return "";
   }
 }
 
-export { Capitalize, TimeAgo, TimeDiff, Seconds2human, RunStatusColor };
+export { Capitalize, TimeAgo, TimeDiff, Seconds2human, RunStatusClass };
