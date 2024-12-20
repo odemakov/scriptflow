@@ -17,7 +17,7 @@ watch(() => props.task.id, (newVal) => {
   useSubscription.fetchSubscriptionsForTask(newVal)
 })
 
-const toggleTaskActive = async (subscriptionId: string) => {
+const toggleSubscriptionActive = async (subscriptionId: string) => {
   const subscription = subscriptions.value.find((s: ISubscription) => s.id === subscriptionId)
   if (subscription) {
     try {
@@ -43,7 +43,7 @@ const toggleTaskActive = async (subscriptionId: string) => {
           <tr v-for="subscription in subscriptions" :key="subscription.id">
             <td>
               <input type="checkbox" class="toggle toggle-sm" :checked="subscription.active"
-                @change="toggleTaskActive(subscription.id)" />
+                @change="toggleSubscriptionActive(subscription.id)" />
             </td>
             <td class="w-1/2">
               {{ subscription.name }}

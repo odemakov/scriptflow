@@ -15,6 +15,7 @@ import PageTitle from '@/components/PageTitle.vue';
 import { useProjectStore } from '@/stores/ProjectStore';
 import { ICrumb } from '@/types';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import RunTimeDiff from '@/components/RunTimeDiff.vue';
 
 const router = useRouter()
 const route = useRoute()
@@ -60,7 +61,7 @@ const fetchTasksAndSubsribe = async () => {
 const fetchLastRunsAndSubscribe = async () => {
   try {
     for (const task of tasks.value) {
-      await useRuns.fetchLastRuns(task.id, 1)
+      await useRuns.fetchLastRuns(task.id, 1, false)
     }
     useRuns.subscribe()
   } catch (error: unknown) {
@@ -142,6 +143,7 @@ const crumbs = [
           <th class="">command</th>
           <th class="">run id</th>
           <th class="">run status</th>
+          <th class="">running time</th>
           <th class="">run updated</th>
         </tr>
       </thead>
@@ -182,6 +184,12 @@ const crumbs = [
           <td>
             <template v-if="taskLastRun(task.id)">
               <RunStatus :run="taskLastRun(task.id)" />
+            </template>
+          </td>
+
+          <td>
+            <template v-if="taskLastRun(task.id)">
+              <RunTimeDiff :run="taskLastRun(task.id)" />
             </template>
           </td>
 

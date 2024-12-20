@@ -15,14 +15,18 @@ export const useRunStore = defineStore("runs", () => {
   const getRun = computed(() => run.value);
 
   // methods
-  async function fetchLastRuns(taskId: string, limit: number = 100) {
+  async function fetchLastRuns(
+    taskId: string,
+    limit: number = 100,
+    expand_task: boolean = true
+  ) {
     const records = await pb
       .collection(CCollectionName.runs)
       .getList<IRun>(1, limit, {
         requestKey: taskId,
         filter: pb.filter("task.id={:taskId}", { taskId: taskId }),
         sort: "-created",
-        expand: "task",
+        expand: expand_task ? "task" : "",
       });
     lastRuns.value[taskId] = records.items;
   }

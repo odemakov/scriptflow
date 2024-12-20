@@ -21,7 +21,6 @@ onMounted(async () => {
         <tr>
           <th>id</th>
           <th>host</th>
-          <th>username</th>
           <th>status</th>
         </tr>
       </thead>
