@@ -3,9 +3,13 @@
 # Unique key is the slug
 projects:
   - name: Project 1
-    slug: project1
+    slug: project-1
+    config:
+      logs_max_days: 7
   - name: Project 2
-    slug: project2
+    slug: project-2
+    config:
+      logs_max_days: 30
 
 # Node has unique key host + username. This allows to have multiple nodes
 # with the same host but different username. This is why in the tasks we
@@ -23,23 +27,23 @@ nodes:
 tasks:
   - name: Task 1
     slug: task-1
-    project: project1
+    project: project-1
     command: echo 'Hello, World!'
     schedule: "*/5 * * * *"
     node: vm1,root
     active: true
     prepend_datetime: true
-  - name: Randon task 1
+  - name: Random task 1
     slug: random-task-1
-    project: project1
+    project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
     schedule: "@every 1m"
     node: vm1,root
     active: true
     prepend_datetime: true
-  - name: Randon task 2
+  - name: Random task 2
     slug: random-task-2
-    project: project1
+    project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
     schedule: "@every 1m"
     node: vm2,root
@@ -47,8 +51,29 @@ tasks:
     prepend_datetime: true
   - name: Deploy
     slug: deploy
-    project: project2
+    project: project-2
     command: /bin/deploy
     schedule: "20 4 * * *"
     node: vm1,deployer
+    active: true
+
+channels:
+  - name: Admin email
+    type: email
+    config:
+      to: admin@example.com
+  - name: Slack
+    type: slack
+    config:
+      token: xoxb--
+      channel: "#scriptflow"
+
+subscriptions:
+  - name: Failed tasks
+    task: task-1
+    channel: Admin email
+    events:
+      - error
+      - internal_error
+    threshold: 1
     active: true
