@@ -5,6 +5,4 @@
 frontend/.env
 backend/scriptflow
 backend/tmp
-backend/pb_data
-backend/sf_data
 backend/dist

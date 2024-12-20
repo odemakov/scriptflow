@@ -141,7 +141,7 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 			"project":          projects[task.Project],
 			"active":           task.Active,
 			"prepend_datetime": task.PrependDatetime,
-		}, "slug", "name", "command", "schedule", "node", "project", "active", "prepend_datetime")
+		}, "slug,project", "name", "command", "schedule", "node", "active", "prepend_datetime")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update task", slog.Any("error", err))
 		}
