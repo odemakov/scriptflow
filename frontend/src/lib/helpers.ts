@@ -26,30 +26,34 @@ function Seconds2human(seconds: number): string {
    *
    * @param seconds - The number of seconds to convert.
    * @returns A string representing the time in a human-readable format.
-   *          - If seconds is less than 60, returns the format "{seconds}s".
-   *          - If seconds is less than 600 (10 minutes), returns the format "{minutes}m{seconds}s".
-   *          - If seconds is less than 3600 (1 hour), returns the format "{minutes}m".
-   *          - If seconds is 3600 or more, returns the format "{hours}h{minutes}".
-   *          - If hours is greater than 0 and minutes is 0, returns the format "{hours}h".
-   *          - If the input is null or 0, returns "0".
+   *          - If seconds is less or equal than 60, returns the format "{seconds}s".
+   *          - If seconds is less or equal than 3600, returns the format "{minutes}m{seconds}s".
+   *          - If seconds is less or equal than 86400, returns the format "{hours}h{minutes}m".
+   *          - Else, returns the format "{days}d{hours}h".
    */
   if (seconds === null || seconds === 0) {
     return "0";
   } else if (seconds < 60) {
     return `${seconds}s`;
-  } else if (seconds < 600) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m${secs}s`;
   }
 
-  const minutes = Math.floor(seconds / 60) % 60;
-  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
 
-  if (hours > 0) {
-    return minutes === 0 ? `${hours}h` : `${hours}h${minutes}`;
+  if (minutes < 60) {
+    return remainingSeconds === 0
+      ? `${minutes}m`
+      : `${minutes}m${remainingSeconds}s`;
+  } else if (minutes < 1440) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes === 0
+      ? `${hours}h`
+      : `${hours}h${remainingMinutes}m`;
   } else {
-    return `${minutes}m`;
+    const days = Math.floor(minutes / 1440);
+    const remainingHours = Math.floor((minutes % 1440) / 60);
+    return remainingHours === 0 ? `${days}d` : `${days}d${remainingHours}h`;
   }
 }
 
