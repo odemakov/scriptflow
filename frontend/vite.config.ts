@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    base: "/",
+    base: "./",
     build: {
       chunkSizeWarningLimit: 1000,
       reportCompressedSize: false,
