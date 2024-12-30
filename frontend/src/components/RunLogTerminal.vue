@@ -1,66 +1,64 @@
 <script setup lang="ts">
 import "@xterm/xterm/css/xterm.css";
-import { watch, ref, onMounted, onUnmounted } from 'vue';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import { watch, ref, onMounted, onUnmounted } from "vue";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
 
-import { useToastStore } from '@/stores/ToastStore';
-import { useAuthStore } from '@/stores/AuthStore';
+import { useToastStore } from "@/stores/ToastStore";
+import { useAuthStore } from "@/stores/AuthStore";
+import config from "@/config";
 
 const props = defineProps<{
-  run: IRun,
-}>()
+  run: IRun;
+}>();
 
-const auth = useAuthStore()
-const useToasts = useToastStore()
+const auth = useAuthStore();
+const useToasts = useToastStore();
 const terminalRef = ref(null);
-const term = new Terminal(CTerminalDefaults)
+const term = new Terminal(CTerminalDefaults);
 
 // Initialize FitAddon
 const fitAddon = new FitAddon();
 const handleResize = () => fitAddon.fit();
 
-watch(() => props.run, async () => {
-  try {
-    await fetchLogs();
-  } catch (error: unknown) {
-    useToasts.addToast(
-      (error as Error).message,
-      'error',
-    )
-  }
-})
+watch(
+  () => props.run,
+  async () => {
+    try {
+      await fetchLogs();
+    } catch (error: unknown) {
+      useToasts.addToast((error as Error).message, "error");
+    }
+  },
+);
 
 // function to retrieve logs from the server
 const fetchLogs = async () => {
-  const logUrl = `/api/scriptflow/run/${props.run.id}/log`;
+  const logUrl = `${config.baseUrl}api/scriptflow/run/${props.run.id}/log`;
 
   // set Autorization header with token
   fetch(logUrl, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Authorization': `${auth.token}`,
-    }
+      Authorization: `${auth.token}`,
+    },
   })
-    .then(response => response.text())
-    .then(data => {
+    .then((response) => response.text())
+    .then((data) => {
       try {
         const parsed = JSON.parse(data);
-        if ('code' in parsed) {
+        if ("code" in parsed) {
           return new Error(parsed.message);
         } else {
           for (const log of parsed.logs) {
-            term.write(log + '\n');
+            term.write(log + "\n");
           }
         }
       } catch (error: unknown) {
-        useToasts.addToast(
-          (error as Error).message,
-          'error',
-        )
+        useToasts.addToast((error as Error).message, "error");
       }
-    })
-}
+    });
+};
 
 onMounted(() => {
   // Open Terminal
@@ -76,16 +74,16 @@ onMounted(() => {
   // Fit the Terminal to its container
   fitAddon.fit();
 
-  window.addEventListener('resize', handleResize);
+  window.addEventListener("resize", handleResize);
 
   // Handle resizing dynamically
-  window.addEventListener('resize', () => {
+  window.addEventListener("resize", () => {
     fitAddon.fit();
   });
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
+  window.removeEventListener("resize", handleResize);
   term.dispose();
 });
 </script>

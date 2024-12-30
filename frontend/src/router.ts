@@ -1,26 +1,29 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHashHistory } from "vue-router";
 import HomeView from "@/views/HomeView.vue";
 import ProjectView from "@/views/ProjectView.vue";
 import TaskView from "@/views/TaskView.vue";
 import TaskLogView from "@/views/TaskLogView.vue";
 import RunView from "@/views/RunView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
+import config from "@/config";
+
+// Get the base URL from the current location
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(config.baseUrl),
   routes: [
     {
       path: "/",
-      name: "home",
-      component: HomeView,
-      meta: {
-        title: "Home",
-        requireAuth: false,
-      },
-    },
-    {
-      path: "/app/",
       children: [
+        {
+          path: "",
+          name: "home",
+          component: HomeView,
+          meta: {
+            title: "Home",
+            requireAuth: false,
+          },
+        },
         {
           path: ":projectId",
           children: [

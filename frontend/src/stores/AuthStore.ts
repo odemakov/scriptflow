@@ -2,13 +2,14 @@ import { ref } from "vue";
 import { defineStore } from "pinia";
 
 import PocketBase from "pocketbase";
+import config from "@/config";
 
 // Initialize PocketBase client
-const pb = new PocketBase();
+const pb = new PocketBase(config.baseUrl);
 
 export const useAuthStore = defineStore("auth", () => {
   // State variables
-  const user = ref(pb.authStore.model); // PocketBase stores the current user in `pb.authStore.model`
+  const user = ref(pb.authStore.model);
   const isAuthenticated = ref(pb.authStore.isValid);
   const token = ref(pb.authStore.token);
 
