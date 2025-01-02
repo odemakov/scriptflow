@@ -1,42 +1,41 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import router from '@/router';
+import { computed, onMounted } from "vue";
+import router from "@/router";
 
-import { useProjectStore } from '@/stores/ProjectStore';
-import IdentifierUrl from './IdentifierUrl.vue';
+import { useProjectStore } from "@/stores/ProjectStore";
+import IdentifierUrl from "@/components/IdentifierUrl.vue";
 
-const useProject = useProjectStore()
-const projects = computed(() => useProject.getProjects)
+const useProject = useProjectStore();
+const projects = computed(() => useProject.getProjects);
 
 const gotoTasks = (projectId: string) => {
-  router.push({ name: 'project', params: { projectId: projectId } })
-}
+  router.push({ name: "project", params: { projectId: projectId } });
+};
 
 onMounted(async () => {
-  await useProject.fetchProjects()
-})
+  await useProject.fetchProjects();
+});
 </script>
 
 <template>
-  <div class="mx-auto p-8 rounded">
-    <table class="table mx-auto">
-      <thead>
+  <div class="mx-auto p-1 md:p-2 rounded overflow-x-auto">
+    <table class="table table-sm w-full mx-auto text-sm md:text-base">
+      <thead class="">
         <tr>
-          <th>id</th>
-          <th>name</th>
-          <th>config</th>
+          <th class="whitespace-nowrap px-2 md:px-4">id</th>
+          <th class="whitespace-nowrap px-2 md:px-4">name</th>
+          <th class="whitespace-nowrap px-2 md:px-4">config</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="project in projects" :key="project.id">
-          <td>
+          <td class="p-1 md:p-2">
             <IdentifierUrl :id="project.id" @click="gotoTasks(project.id)" />
           </td>
-          <td>{{ project.name }}</td>
-          <td>{{ project.config }}</td>
+          <td class="p-1 md:p-2">{{ project.name }}</td>
+          <td class="p-1 md:p-2 text-xs">{{ project.config }}</td>
         </tr>
       </tbody>
     </table>
-
   </div>
 </template>

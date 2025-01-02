@@ -1,129 +1,128 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
 
-import { useToastStore } from '@/stores/ToastStore';
-import { useTaskStore } from '@/stores/TaskStore';
-import { useRunStore } from '@/stores/RunStore';
+import { useToastStore } from "@/stores/ToastStore";
+import { useTaskStore } from "@/stores/TaskStore";
+import { useRunStore } from "@/stores/RunStore";
 
-import IdentifierUrl from '@/components/IdentifierUrl.vue';
-import Command from '@/components/Command.vue';
-import RunStatus from '@/components/RunStatus.vue';
-import RunTimeAgo from '@/components/RunTimeAgo.vue';
-import PageTitle from '@/components/PageTitle.vue';
-import { useProjectStore } from '@/stores/ProjectStore';
-import { ICrumb } from '@/types';
-import Breadcrumbs from '@/components/Breadcrumbs.vue';
-import RunTimeDiff from '@/components/RunTimeDiff.vue';
+import IdentifierUrl from "@/components/IdentifierUrl.vue";
+import Command from "@/components/Command.vue";
+import RunStatus from "@/components/RunStatus.vue";
+import RunTimeAgo from "@/components/RunTimeAgo.vue";
+import PageTitle from "@/components/PageTitle.vue";
+import { useProjectStore } from "@/stores/ProjectStore";
+import { ICrumb, CRunStatus, IRun, ITask } from "@/types";
+import Breadcrumbs from "@/components/Breadcrumbs.vue";
+import RunTimeDiff from "@/components/RunTimeDiff.vue";
 
-const router = useRouter()
-const route = useRoute()
-const useToasts = useToastStore()
-const useProjects = useProjectStore()
-const useTasks = useTaskStore()
-const useRuns = useRunStore()
+const router = useRouter();
+const route = useRoute();
+const useToasts = useToastStore();
+const useProjects = useProjectStore();
+const useTasks = useTaskStore();
+const useRuns = useRunStore();
 
-const projectId = Array.isArray(route.params.projectId) ? route.params.projectId[0] : route.params.projectId
-const tasks = computed(() => useTasks.getTasks)
-const lastRuns = computed(() => useRuns.getLastRuns)
+const projectId = Array.isArray(route.params.projectId)
+  ? route.params.projectId[0]
+  : route.params.projectId;
+const tasks = computed(() => useTasks.getTasks);
+const lastRuns = computed(() => useRuns.getLastRuns);
 const taskLastRun = (taskId: string) => {
   if (taskId in lastRuns.value && lastRuns.value[taskId].length > 0) {
-    return lastRuns.value[taskId][0]
+    return lastRuns.value[taskId][0];
   } else {
-    return null
+    return null;
   }
-}
+};
 
 const fetchProject = async () => {
   try {
-    await useProjects.fetchProject(projectId)
+    await useProjects.fetchProject(projectId);
   } catch (error: unknown) {
-    useToasts.addToast(
-      (error as Error).message,
-      'error',
-    )
+    useToasts.addToast((error as Error).message, "error");
   }
-}
+};
 
 const fetchTasksAndSubsribe = async () => {
   try {
-    await useTasks.fetchTasks(projectId)
-    useTasks.subscribe()
+    await useTasks.fetchTasks(projectId);
+    useTasks.subscribe();
   } catch (error: unknown) {
-    useToasts.addToast(
-      (error as Error).message,
-      'error',
-    )
+    useToasts.addToast((error as Error).message, "error");
   }
-}
+};
 
 const fetchLastRunsAndSubscribe = async () => {
   try {
     for (const task of tasks.value) {
-      await useRuns.fetchLastRuns(task.id, 1, false)
+      await useRuns.fetchLastRuns(task.id, 1, false);
     }
-    useRuns.subscribe()
+    useRuns.subscribe();
   } catch (error: unknown) {
-    useToasts.addToast(
-      (error as Error).message,
-      'error',
-    )
+    useToasts.addToast((error as Error).message, "error");
   }
-}
+};
 
 onMounted(async () => {
   // unsubscribe from runs collection just in case
-  useTasks.unsubscribe()
-  useRuns.unsubscribe()
+  useTasks.unsubscribe();
+  useRuns.unsubscribe();
 
   // fetch project
-  await fetchProject()
+  await fetchProject();
 
   // fetch tasks
-  await fetchTasksAndSubsribe()
+  await fetchTasksAndSubsribe();
 
   // for each task fetch last run
-  await fetchLastRunsAndSubscribe()
-})
+  await fetchLastRunsAndSubscribe();
+});
 
 onUnmounted(() => {
-  useTasks.unsubscribe()
-  useRuns.unsubscribe()
-})
+  useTasks.unsubscribe();
+  useRuns.unsubscribe();
+});
 
 const gotoTask = (taskId: string) => {
-  router.push({ name: 'task', params: { projectId: projectId, taskId: taskId } })
-}
+  router.push({
+    name: "task",
+    params: { projectId: projectId, taskId: taskId },
+  });
+};
 
 const gotoRun = (run: IRun) => {
-  if (run.status === CRunStatus.started) {
-    router.push({ name: 'task-log', params: { projectId: projectId, taskId: run.expand.task.id } })
-  } else {
-    router.push({ name: 'run', params: { projectId: projectId, taskId: run.expand.task.id, id: run.id } })
+  if (!run.expand?.task) {
+    return;
   }
-}
 
+  if (run.status === CRunStatus.started) {
+    router.push({
+      name: "task-log",
+      params: { projectId: projectId, taskId: run.expand.task.id },
+    });
+  } else {
+    router.push({
+      name: "run",
+      params: { projectId: projectId, taskId: run.expand.task.id, id: run.id },
+    });
+  }
+};
 
 const toggleTaskActive = async (taskId: string) => {
-  const task = tasks.value.find((t: ITask) => t.id === taskId)
+  const task = tasks.value.find((t: ITask) => t.id === taskId);
   if (task) {
     try {
-      task.active = !task.active
-      useTasks.updateTask(task.id, { active: task.active })
+      task.active = !task.active;
+      useTasks.updateTask(task.id, { active: task.active });
     } catch (error: unknown) {
-      task.active = !task.active
-      useToasts.addToast(
-        (error as Error).message,
-        'error',
-      )
+      task.active = !task.active;
+      useToasts.addToast((error as Error).message, "error");
     }
   }
-}
+};
 
-const crumbs = [
-  { label: projectId } as ICrumb,
-]
-
+const crumbs = [{ label: projectId } as ICrumb];
 </script>
 
 <template>
@@ -149,10 +148,13 @@ const crumbs = [
       <!-- Table body -->
       <tbody>
         <tr v-for="task in tasks" :key="task.id" class="">
-
           <td class="">
-            <input type="checkbox" class="toggle toggle-sm" :checked="task.active"
-              @change="toggleTaskActive(task.id)" />
+            <input
+              type="checkbox"
+              class="toggle toggle-sm"
+              :checked="task.active"
+              @change="toggleTaskActive(task.id)"
+            />
           </td>
 
           <td>
@@ -171,7 +173,10 @@ const crumbs = [
 
           <td>
             <template v-if="taskLastRun(task.id)">
-              <IdentifierUrl @click="gotoRun(taskLastRun(task.id))" :id="taskLastRun(task.id)?.id" />
+              <IdentifierUrl
+                @click="gotoRun(taskLastRun(task.id))"
+                :id="taskLastRun(task.id)?.id"
+              />
             </template>
           </td>
 
@@ -192,10 +197,8 @@ const crumbs = [
               <RunTimeAgo :datetime="taskLastRun(task.id)?.updated" />
             </template>
           </td>
-
         </tr>
       </tbody>
     </table>
   </div>
-
 </template>

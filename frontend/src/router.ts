@@ -1,11 +1,11 @@
-import { createRouter, createWebHashHistory } from "vue-router";
-import HomeView from "@/views/HomeView.vue";
-import ProjectView from "@/views/ProjectView.vue";
-import TaskView from "@/views/TaskView.vue";
-import TaskLogView from "@/views/TaskLogView.vue";
-import RunView from "@/views/RunView.vue";
-import NotFoundView from "@/views/NotFoundView.vue";
 import config from "@/config";
+import HomeView from "@/views/HomeView.vue";
+import NotFoundView from "@/views/NotFoundView.vue";
+import ProjectView from "@/views/ProjectView.vue";
+import RunView from "@/views/RunView.vue";
+import TaskLogView from "@/views/TaskLogView.vue";
+import TaskView from "@/views/TaskView.vue";
+import { createRouter, createWebHashHistory } from "vue-router";
 
 // Get the base URL from the current location
 
