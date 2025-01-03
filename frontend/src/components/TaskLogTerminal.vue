@@ -71,7 +71,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-full w-full">
-    <div ref="terminalRef" class=""></div>
+  <div class="h-full w-full overflow-auto">
+    <div ref="terminalRef" class="inline-block min-w-full"></div>
   </div>
 </template>

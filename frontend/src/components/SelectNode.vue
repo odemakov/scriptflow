@@ -19,14 +19,16 @@ onMounted(async () => {
     <table class="table table-sm w-full mx-auto text-sm md:text-base">
       <thead>
         <tr>
-          <th class="whitespace-nowrap px-2 md:px-4">id</th>
+          <th class="hidden md:table-cell whitespace-nowrap px-2 md:px-4">
+            id
+          </th>
           <th class="whitespace-nowrap px-2 md:px-4">host</th>
           <th class="whitespace-nowrap px-2 md:px-4">status</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="node in nodes" :key="node.id">
-          <td class="p-1 md:p-2">
+          <td class="hidden md:table-cell p-1 md:p-2">
             <Identifier :id="node.id" />
           </td>
           <td class="p-1 md:p-2">

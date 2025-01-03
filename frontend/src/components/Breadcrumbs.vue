@@ -1,32 +1,31 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router'
-import { ICrumb } from '@/types';
-import { defineProps } from 'vue'
+import { onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
+import { ICrumb } from "@/types";
 
-const router = useRouter()
+const router = useRouter();
 const props = defineProps<{
-  crumbs: ICrumb[]
-}>()
+  crumbs: ICrumb[];
+}>();
 
 const handleKeyPress = (event: KeyboardEvent) => {
-  if (event.key === 'b' || event.key === 'B') {
+  if (event.key === "b" || event.key === "B") {
     // follow the one before last crumb
     if (props.crumbs.length > 1) {
       props.crumbs[props.crumbs.length - 2].to();
     } else {
       // go home
-      router.push({ name: 'home' });
+      router.push({ name: "home" });
     }
   }
-}
+};
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeyPress);
+  window.addEventListener("keydown", handleKeyPress);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyPress);
+  window.removeEventListener("keydown", handleKeyPress);
 });
 </script>
 <template>

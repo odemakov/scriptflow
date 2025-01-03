@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, computed } from "vue";
 import router from "@/router";
 import { useAuthStore } from "@/stores/AuthStore";
 import UserIcon from "./UserIcon.vue";
+import config from "@/config";
 
 const auth = useAuthStore();
 
@@ -10,6 +11,7 @@ onMounted(() => {
   auth.fetchUser();
 });
 
+const pbAdminUrl = computed(() => `${config.baseUrl}_`);
 const handleLogout = async () => {
   auth.logout();
   router.push({ name: "home" });
@@ -28,7 +30,7 @@ const handleLogout = async () => {
           tabindex="0"
           class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow"
         >
-          <li><a>Settings</a></li>
+          <li><a :href="pbAdminUrl">PocketBase admin</a></li>
           <li><a @click="handleLogout">Logout</a></li>
         </ul>
       </div>

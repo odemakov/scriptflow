@@ -91,20 +91,16 @@ const gotoTask = (taskId: string) => {
   });
 };
 
-const gotoRun = (run: IRun) => {
-  if (!run.expand?.task) {
-    return;
-  }
-
+const gotoRun = (task: ITask, run: IRun) => {
   if (run.status === CRunStatus.started) {
     router.push({
       name: "task-log",
-      params: { projectId: projectId, taskId: run.expand.task.id },
+      params: { projectId: projectId, taskId: task.id },
     });
   } else {
     router.push({
       name: "run",
-      params: { projectId: projectId, taskId: run.expand.task.id, id: run.id },
+      params: { projectId: projectId, taskId: task.id, id: run.id },
     });
   }
 };
@@ -135,7 +131,7 @@ const crumbs = [{ label: projectId } as ICrumb];
       <thead>
         <tr class="">
           <th class=""></th>
-          <th class="">id</th>
+          <th class="sticky left-0 bg-base-100">id</th>
           <th class="">schedule</th>
           <th class="">command</th>
           <th class="">run id</th>
@@ -157,7 +153,7 @@ const crumbs = [{ label: projectId } as ICrumb];
             />
           </td>
 
-          <td>
+          <td class="sticky left-0 bg-base-100">
             <IdentifierUrl @click="gotoTask(task.id)" :id="task.id" />
           </td>
 
@@ -174,7 +170,7 @@ const crumbs = [{ label: projectId } as ICrumb];
           <td>
             <template v-if="taskLastRun(task.id)">
               <IdentifierUrl
-                @click="gotoRun(taskLastRun(task.id))"
+                @click="gotoRun(task, taskLastRun(task.id))"
                 :id="taskLastRun(task.id)?.id"
               />
             </template>

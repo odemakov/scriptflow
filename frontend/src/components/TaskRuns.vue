@@ -1,46 +1,54 @@
 <script setup lang="ts">
-import { onUnmounted, watch, computed } from 'vue';
-import { useRouter } from 'vue-router'
-import { useRunStore } from '@/stores/RunStore';
-import { useToastStore } from '@/stores/ToastStore';
-import IdentifierUrl from './IdentifierUrl.vue';
-import RunStatus from './RunStatus.vue';
-import RunTimeAgo from './RunTimeAgo.vue';
-import RunTimeDiff from './RunTimeDiff.vue';
+import { onUnmounted, watch, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useRunStore } from "@/stores/RunStore";
+import { useToastStore } from "@/stores/ToastStore";
+import IdentifierUrl from "./IdentifierUrl.vue";
+import RunStatus from "./RunStatus.vue";
+import RunTimeAgo from "./RunTimeAgo.vue";
+import RunTimeDiff from "./RunTimeDiff.vue";
 
 const props = defineProps<{
-  task: ITask
-}>()
+  task: ITask;
+}>();
 
-const router = useRouter()
-const useToasts = useToastStore()
-const useRuns = useRunStore()
-const lastRuns = computed(() => useRuns.getLastRuns[props.task.id])
+const router = useRouter();
+const useToasts = useToastStore();
+const useRuns = useRunStore();
+const lastRuns = computed(() => useRuns.getLastRuns[props.task.id]);
 
 const gotoRun = (run: IRun) => {
   if (run.status === CRunStatus.started) {
-    router.push({ name: 'task-log', params: { projectId: props.task?.expand?.project.id, taskId: props.task.id } })
+    router.push({
+      name: "task-log",
+      params: {
+        projectId: props.task?.expand?.project.id,
+        taskId: props.task.id,
+      },
+    });
   } else {
-    router.push({ name: 'run', params: { projectId: props.task?.expand?.project.id, id: run.id } })
+    router.push({
+      name: "run",
+      params: { projectId: props.task?.expand?.project.id, id: run.id },
+    });
   }
-}
+};
 
-watch(() => props.task, async () => {
-  try {
-    await useRuns.fetchLastRuns(props.task.id)
-    useRuns.subscribe()
-  } catch (error: unknown) {
-    useToasts.addToast(
-      (error as Error).message,
-      'error',
-    )
-  }
-})
+watch(
+  () => props.task,
+  async () => {
+    try {
+      await useRuns.fetchLastRuns(props.task.id);
+      useRuns.subscribe();
+    } catch (error: unknown) {
+      useToasts.addToast((error as Error).message, "error");
+    }
+  },
+);
 
 onUnmounted(() => {
-  useRuns.unsubscribe()
-})
-
+  useRuns.unsubscribe();
+});
 </script>
 
 <template>
