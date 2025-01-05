@@ -205,13 +205,13 @@ func (sf *ScriptFlow) sendEmailNotification(subject string, message string, chan
 
 func (sf *ScriptFlow) buildMessageContext(nc NotificationContext) MessageContext {
 	taskUrl := fmt.Sprintf(
-		"%s/app/%s/%s/history",
+		"%s/#/%s/%s/history",
 		sf.app.Settings().Meta.AppURL,
 		nc.Project.GetString("id"),
 		nc.Task.GetString("id"),
 	)
 	runUrl := fmt.Sprintf(
-		"%s/app/%s/%s/%s",
+		"%s/#/%s/%s/%s",
 		sf.app.Settings().Meta.AppURL,
 		nc.Project.GetString("id"),
 		nc.Task.GetString("id"),
