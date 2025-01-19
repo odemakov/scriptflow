@@ -16,7 +16,7 @@ const TimeDiff = (start: string, end: string): string => {
   const startDate = new Date(start);
   const endDate = new Date(end);
   return Seconds2human(
-    Math.round((endDate.getTime() - startDate.getTime()) / 1000)
+    Math.round((endDate.getTime() - startDate.getTime()) / 1000),
   );
 };
 
@@ -73,4 +73,4 @@ function RunStatusClass(status: string): string {
   }
 }
 
-export { Capitalize, TimeAgo, TimeDiff, Seconds2human, RunStatusClass };
+export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff };

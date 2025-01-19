@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import Command from "./Command.vue";
 import Identifier from "./Identifier.vue";
 import IdentifierUrl from "./IdentifierUrl.vue";
+import TrueFalse from "./TrueFalse.vue";
 import config from "@/config";
 import { useRunStore } from "@/stores/RunStore";
 import { useTaskStore } from "@/stores/TaskStore";
@@ -98,7 +99,9 @@ const runTask = async () => {
 </script>
 
 <template>
-  <div class="card card-compact bg-base-100 shadow-xl">
+  <div
+    class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]"
+  >
     <div class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="card-title">{{ props.task.name }}</h2>
@@ -135,7 +138,9 @@ const runTask = async () => {
             </tr>
             <tr>
               <td>Node</td>
-              <td>{{ props.task.expand?.node?.host }}</td>
+              <td>
+                <Identifier :id="props.task.expand?.node?.host" />
+              </td>
             </tr>
             <tr>
               <td>Schedule</td>
@@ -143,12 +148,16 @@ const runTask = async () => {
             </tr>
             <tr>
               <td>Active</td>
-              <td>{{ props.task.active }}</td>
+              <td>
+                <TrueFalse :status="props.task.active" />
+              </td>
             </tr>
 
             <tr>
               <td>Prepend datetime</td>
-              <td>{{ props.task.prepend_datetime }}</td>
+              <td>
+                <TrueFalse :status="props.task.prepend_datetime" />
+              </td>
             </tr>
             <tr>
               <td>Created</td>
