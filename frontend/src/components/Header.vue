@@ -11,7 +11,7 @@ onMounted(() => {
   auth.fetchUser();
 });
 
-const pbAdminUrl = computed(() => `${config.baseUrl}_`);
+const pbAdminUrl = computed(() => `${config.baseUrl}_/`);
 const handleLogout = async () => {
   auth.logout();
   router.push({ name: "home" });
