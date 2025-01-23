@@ -20,7 +20,7 @@ const TimeDiff = (start: string, end: string): string => {
   );
 };
 
-function Seconds2human(seconds: number): string {
+const Seconds2human = (seconds: number): string => {
   /**
    * Convert a given number of seconds into a human-readable string format.
    *
@@ -55,9 +55,9 @@ function Seconds2human(seconds: number): string {
     const remainingHours = Math.floor((minutes % 1440) / 60);
     return remainingHours === 0 ? `${days}d` : `${days}d${remainingHours}h`;
   }
-}
+};
 
-function RunStatusClass(status: string): string {
+const RunStatusClass = (status: string): string => {
   switch (status) {
     case CRunStatus.completed:
       return "badge badge-success bg-opacity-60";
@@ -71,6 +71,6 @@ function RunStatusClass(status: string): string {
     default:
       return "";
   }
-}
+};
 
 export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff };
