@@ -94,7 +94,7 @@ func NewConfig(configFile string) (*Config, error) {
 func (sf *ScriptFlow) UpdateFromConfig() error {
 	sf.updateFromConfigProject()
 	sf.updateFromConfigNode()
-	sf.updateFromConfigTaks()
+	sf.updateFromConfigTasks()
 	sf.updateFromConfigChannels()
 	sf.updateFromConfigSubscriptions()
 	return nil
@@ -103,10 +103,13 @@ func (sf *ScriptFlow) UpdateFromConfig() error {
 func (sf *ScriptFlow) updateFromConfigProject() {
 	// insert or update projects
 	for _, project := range sf.config.Projects {
-		// skip empty id or name
-		if project.Id == "" || project.Name == "" {
-			sf.app.Logger().Warn("[config] project id or name is empty", slog.Any("project", project))
+		// skip empty name
+		if project.Name == "" {
+			sf.app.Logger().Warn("[config] project name is empty", slog.Any("project", project))
 			continue
+		}
+		if project.Id == "" {
+			project.Id = generateIdFromName(project.Name)
 		}
 		if !isValidUUID(project.Id) {
 			sf.app.Logger().Warn("[config] project id is not a valid UUID", slog.Any("project", project))
@@ -133,9 +136,13 @@ func (sf *ScriptFlow) updateFromConfigNode() {
 	// insert or update nodes
 	for _, node := range sf.config.Nodes {
 		// skip empty host, username
-		if node.Id == "" || node.Host == "" || node.Username == "" {
+		if node.Host == "" || node.Username == "" {
 			sf.app.Logger().Warn("[config] node id, host or username is empty", slog.Any("node", node))
 			continue
+		}
+		if node.Id == "" {
+			// generate id from name-host
+			node.Id = generateIdFromName(node.Host + "-" + node.Username)
 		}
 		if !isValidUUID(node.Id) {
 			sf.app.Logger().Warn("[config] node id is not a valid UUID", slog.Any("node", node))
@@ -153,13 +160,16 @@ func (sf *ScriptFlow) updateFromConfigNode() {
 	}
 }
 
-func (sf *ScriptFlow) updateFromConfigTaks() {
+func (sf *ScriptFlow) updateFromConfigTasks() {
 	// insert or update tasks
 	for _, task := range sf.config.Tasks {
-		// skip empty id, name, command, schedule, node, project
-		if task.Id == "" || task.Name == "" || task.Command == "" || task.Schedule == "" || task.Node == "" || task.Project == "" {
+		// skip empty name, command, schedule, node, project
+		if task.Name == "" || task.Command == "" || task.Schedule == "" || task.Node == "" || task.Project == "" {
 			sf.app.Logger().Warn("[config] task id, name, command, schedule, node or project is empty", slog.Any("task", task))
 			continue
+		}
+		if task.Id == "" {
+			task.Id = generateIdFromName(task.Name)
 		}
 		if !isValidUUID(task.Id) {
 			sf.app.Logger().Warn("[config] task id is not a valid UUID", slog.Any("task", task))
@@ -184,10 +194,13 @@ func (sf *ScriptFlow) updateFromConfigTaks() {
 func (sf *ScriptFlow) updateFromConfigChannels() {
 	// insert or update channels
 	for _, channel := range sf.config.Channels {
-		// skip empty id, name or type
-		if channel.Id == "" || channel.Name == "" || channel.Type == "" {
+		// skip empty name or type
+		if channel.Name == "" || channel.Type == "" {
 			sf.app.Logger().Warn("[config] channel id, name or type is empty", slog.Any("channel", channel))
 			continue
+		}
+		if channel.Id == "" {
+			channel.Id = generateIdFromName(channel.Name)
 		}
 		if !isValidUUID(channel.Id) {
 			sf.app.Logger().Warn("[config] channel id is not a valid UUID", slog.Any("channel", channel))
@@ -221,9 +234,12 @@ func (sf *ScriptFlow) updateFromConfigSubscriptions() {
 	// insert or update subscriptions
 	for _, subscription := range sf.config.Subscriptions {
 		// skip empty name, channel
-		if subscription.Id == "" || subscription.Name == "" || subscription.Channel == "" || subscription.Task == "" {
+		if subscription.Name == "" || subscription.Channel == "" || subscription.Task == "" {
 			sf.app.Logger().Warn("[config] subscription id, name, channel or task is empty", slog.Any("subscription", subscription))
 			continue
+		}
+		if subscription.Id == "" {
+			subscription.Id = generateIdFromName(subscription.Name)
 		}
 
 		if subscription.Events == nil {
@@ -308,4 +324,22 @@ func placeholders(params dbx.Params) []string {
 func isValidUUID(s string) bool {
 	re := regexp.MustCompile(`^[a-z][a-z0-9-]{5,}$`)
 	return re.MatchString(s)
+}
+
+// generate id from name
+// to lower case
+// replace all non-alphanumeric characters with '-'
+// replace all multiple '-' with single '-'
+// remove prefix digits
+// trim '-' from start and end
+func generateIdFromName(name string) string {
+	id := strings.ToLower(name)
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	id = re.ReplaceAllString(id, "-")
+	re = regexp.MustCompile(`-+`)
+	id = re.ReplaceAllString(id, "-")
+	re = regexp.MustCompile(`^[0-9]+`)
+	id = re.ReplaceAllString(id, "")
+	id = strings.Trim(id, "-")
+	return id
 }

@@ -144,3 +144,61 @@ func TestSubscriptionFilterOut(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateIdFromName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple string",
+			input:    "Hello World",
+			expected: "hello-world",
+		},
+		{
+			name:     "with special characters",
+			input:    "Hello! @#$% World",
+			expected: "hello-world",
+		},
+		{
+			name:     "with numbers",
+			input:    "Hello123 World456",
+			expected: "hello123-world456",
+		},
+		{
+			name:     "multiple spaces and dashes",
+			input:    "Hello   ---   World",
+			expected: "hello-world",
+		},
+		{
+			name:     "leading and trailing special chars",
+			input:    "---Hello World!!!",
+			expected: "hello-world",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "starts from digit",
+			input:    "123 Hello 1 World",
+			expected: "hello-1-world",
+		},
+		{
+			name:     "Random task 2",
+			input:    "Random task 2",
+			expected: "random-task-2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateIdFromName(tt.input)
+			if got != tt.expected {
+				t.Errorf("generateIdFromName() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}

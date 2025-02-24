@@ -3,12 +3,10 @@
 # valid id: only lowercase letters, starts with letter a-z, contains only a-z0-9 and -, has at least 6 chars
 
 projects:
-  - id: project-1
-    name: Project 1
+  - name: Project 1
     config:
       logs_max_days: 7
-  - id: project-2
-    name: Project 2
+  - name: Project 2
     config:
       logs_max_days: 30
 
@@ -16,44 +14,44 @@ projects:
 # with the same host but different username. This is why in the tasks we
 # have to specify the node as "host,username"
 nodes:
-  - id: vm1-root
-    host: vm1
+  - host: vm1
     username: root
-  - id: vm1-deployer
-    host: vm1
+  - host: vm1
     username: deployer
     private_key: key1
-  - id: vm2-root
-    host: vm2
+  - host: vm2
     username: root
 
 tasks:
-  - id: task-1
-    name: Task 1
+  - name: Task 1
     project: project-1
     command: echo 'Hello, World!'
     schedule: "*/5 * * * *"
     node: vm1-root
     active: true
     prepend_datetime: true
-  - id: random-task-1
-    name: Random task 1
+  - name: Task 2
+    project: project-1
+    command: echo 'Hello, World!'
+    schedule: "*/5 * * * *"
+    node: vm2-root
+    active: true
+    prepend_datetime: true
+  - name: Random task 1
     project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
     schedule: "@every 1s"
     node: vm1-root
     active: true
     prepend_datetime: true
-  - id: random-task-2
-    name: Random task 2
+  - name: Random task 2
     project: project-1
     command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
     schedule: "@every 1m"
     node: vm2-root
     active: false
     prepend_datetime: true
-  - id: deploy
-    name: Deploy
+  - name: Deploy
     project: project-2
     command: /bin/deploy
     schedule: "20 4 * * *"
@@ -61,21 +59,18 @@ tasks:
     active: true
 
 channels:
-  - id: admin-email
-    name: Admin email
+  - name: Admin email
     type: email
     config:
       to: admin@example.com
-  - id: slack-to-group
-    name: Slact to group
+  - name: Slack to group
     type: slack
     config:
       token: xoxb--
       channel: "#scriptflow"
 
 subscriptions:
-  - id: failed-task-1
-    name: Failed task 1
+  - name: Failed task 1
     task: task-1
     channel: admin-email
     events:
@@ -83,8 +78,7 @@ subscriptions:
       - internal_error
     threshold: 1
     active: true
-  - id: failed-task-2
-    name: Failed task 2
+  - name: Failed task 2
     task: task-2
     channel: admin-email
     events:
