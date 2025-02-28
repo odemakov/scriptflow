@@ -27,8 +27,20 @@ watch(
   () => props.task,
   async () => {
     try {
+      const token = localStorage.getItem("pocketbase_auth");
+      if (!token) {
+        useToasts.addToast("No authentication token found.", "error");
+        return;
+      }
+
       const ws = `${config.baseUrl}api/scriptflow/task/${props.task.id}/log-ws`;
       webSocket = new WebSocket(ws);
+
+      // Send authentication as the first message
+      webSocket.onopen = function () {
+        webSocket.send(token);
+      };
+
       // Handle WebSocket events
       webSocket.onerror = () => {
         useToasts.addToast("WebSocket connection failed.", "error");

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -24,6 +25,55 @@ var (
 	openWebSocketsMutex sync.Mutex
 )
 
+func (sf *ScriptFlow) authenticateWebSocketConnection(conn *websocket.Conn, taskId string) (*core.Record, error) {
+	// Wait for authentication message with timeout
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+
+	// Read the first message, which should contain authentication token
+	messageType, message, err := conn.ReadMessage()
+	if err != nil {
+		sf.app.Logger().Warn("WebSocket auth failed",
+			slog.String("error", "Failed to read authentication message"),
+			slog.String("taskId", taskId))
+		return nil, err
+	}
+
+	// Reset deadline for future messages
+	conn.SetReadDeadline(time.Time{})
+
+	// Parse the authentication message
+	var authMessage struct {
+		Token string `json:"token"`
+	}
+
+	if messageType != websocket.TextMessage || json.Unmarshal(message, &authMessage) != nil ||
+		authMessage.Token == "" {
+		sf.app.Logger().Warn("WebSocket auth failed",
+			slog.String("error", "Invalid authentication message format"),
+			slog.String("taskId", taskId))
+		conn.WriteMessage(websocket.TextMessage, []byte(
+			`{"status":"error","message":"Authentication required"}`))
+		return nil, fmt.Errorf("invalid auth message format")
+	}
+
+	// Validate the PocketBase token
+	authRecord, err := sf.app.FindAuthRecordByToken(
+		authMessage.Token,
+		core.TokenTypeAuth,
+	)
+
+	if err != nil || authRecord == nil {
+		sf.app.Logger().Warn("WebSocket auth failed",
+			slog.String("error", fmt.Sprintf("%v", err)),
+			slog.String("taskId", taskId))
+		conn.WriteMessage(websocket.TextMessage, []byte(
+			`{"status":"error","message":"Invalid authentication token"}`))
+		return nil, fmt.Errorf("invalid auth token")
+	}
+
+	return authRecord, nil
+}
+
 func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 	taskId := e.Request.PathValue("taskId")
 
@@ -39,6 +89,12 @@ func (sf *ScriptFlow) ApiTaskLogWebSocket(e *core.RequestEvent) error {
 		return e.InternalServerError(err.Error(), "Failed to upgrade WebSocket")
 	}
 	defer conn.Close()
+
+	// Authenticate the connection
+	_, err = sf.authenticateWebSocketConnection(conn, taskId)
+	if err != nil {
+		return e.Next() // End connection on authentication failure
+	}
 
 	// Increment the counter
 	openWebSocketsMutex.Lock()
