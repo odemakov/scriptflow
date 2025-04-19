@@ -36,28 +36,27 @@ watch(
 const fetchLogs = async () => {
   const logUrl = `${config.baseUrl}api/scriptflow/run/${props.run.id}/log`;
 
-  // set Autorization header with token
-  fetch(logUrl, {
-    method: "GET",
-    headers: {
-      Authorization: `${auth.token}`,
-    },
-  })
-    .then((response) => response.text())
-    .then((data) => {
-      try {
-        const parsed = JSON.parse(data);
-        if ("code" in parsed) {
-          return new Error(parsed.message);
-        } else {
-          for (const log of parsed.logs) {
-            term.write(log + "\n");
-          }
-        }
-      } catch (error: unknown) {
-        useToasts.addToast((error as Error).message, "error");
-      }
+  try {
+    const response = await fetch(logUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `${auth.token}`,
+      },
     });
+
+    const data = await response.text();
+    const parsed = JSON.parse(data);
+
+    if ("status" in parsed) {
+      throw new Error(parsed.message);
+    } else {
+      for (const log of parsed.logs) {
+        term.write(log + "\n");
+      }
+    }
+  } catch (error: unknown) {
+    useToasts.addToast((error as Error).message, "error");
+  }
 };
 
 onMounted(() => {

@@ -25,50 +25,40 @@ const router = createRouter({
           },
         },
         {
-          path: ":projectId",
-          children: [
-            {
-              path: "",
-              name: "project",
-              component: ProjectView,
-              meta: {
-                title: "Project",
-                requireAuth: true,
-              },
-            },
-            {
-              path: "",
-              children: [
-                {
-                  name: "task",
-                  path: ":taskId/history",
-                  component: TaskView,
-                  meta: {
-                    title: "Task",
-                    requireAuth: true,
-                  },
-                },
-                {
-                  name: "task-log",
-                  path: ":taskId/log",
-                  component: TaskLogView,
-                  meta: {
-                    title: "Task",
-                    requireAuth: true,
-                  },
-                },
-                {
-                  path: ":taskId/:id",
-                  name: "run",
-                  component: RunView,
-                  meta: {
-                    title: "Run",
-                    requireAuth: true,
-                  },
-                },
-              ],
-            },
-          ],
+          path: "project/:projectId",
+          name: "project",
+          component: ProjectView,
+          meta: {
+            title: "Project",
+            requireAuth: true,
+          },
+        },
+        {
+          name: "task",
+          path: "task/:taskId/history",
+          component: TaskView,
+          meta: {
+            title: "Task",
+            requireAuth: true,
+          },
+        },
+        {
+          name: "task-log",
+          path: "task/:taskId/log",
+          component: TaskLogView,
+          meta: {
+            title: "Task",
+            requireAuth: true,
+          },
+        },
+        {
+          path: "task/:taskId/:id",
+          name: "run",
+          component: RunView,
+          meta: {
+            title: "Run",
+            requireAuth: true,
+          },
         },
       ],
     },

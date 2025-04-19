@@ -18,9 +18,6 @@ const route = useRoute();
 const taskId = Array.isArray(route.params.taskId)
   ? route.params.taskId[0]
   : route.params.taskId;
-const projectId = Array.isArray(route.params.projectId)
-  ? route.params.projectId[0]
-  : route.params.projectId;
 
 const task = computed(() => useTasks.getTask);
 
@@ -35,18 +32,11 @@ onMounted(async () => {
 const gotoTaskLog = () => {
   router.push({
     name: "task-log",
-    params: { projectId: projectId, taskId: taskId },
+    params: { taskId: taskId },
   });
 };
 
-const crumbs = [
-  {
-    to: () =>
-      router.push({ name: "project", params: { projectId: projectId } }),
-    label: projectId,
-  } as ICrumb,
-  { label: taskId } as ICrumb,
-];
+const crumbs = [{ label: taskId } as ICrumb];
 </script>
 
 <template>
