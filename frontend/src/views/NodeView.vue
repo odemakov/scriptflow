@@ -1,40 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
-
+import { onMounted } from "vue";
+import { useRoute } from "vue-router";
 import { useToastStore } from "@/stores/ToastStore";
-import { useTaskStore } from "@/stores/TaskStore";
-import { useRunStore } from "@/stores/RunStore";
-
-import IdentifierUrl from "@/components/IdentifierUrl.vue";
-import Command from "@/components/Command.vue";
-import RunStatus from "@/components/RunStatus.vue";
-import RunTimeAgo from "@/components/RunTimeAgo.vue";
-import PageTitle from "@/components/PageTitle.vue";
 import { useNodeStore } from "@/stores/NodeStore";
-import { ICrumb, CRunStatus, IRun, ITask } from "@/types";
-import Breadcrumbs from "@/components/Breadcrumbs.vue";
-import RunTimeDiff from "@/components/RunTimeDiff.vue";
+import TaskListView from "@/components/TaskListView.vue";
 
-const router = useRouter();
 const route = useRoute();
 const useToasts = useToastStore();
 const useNodes = useNodeStore();
-const useTasks = useTaskStore();
-const useRuns = useRunStore();
 
 const nodeId = Array.isArray(route.params.nodeId)
   ? route.params.nodeId[0]
   : route.params.nodeId;
-const tasks = computed(() => useTasks.getTasks);
-const lastRuns = computed(() => useRuns.getLastRuns);
-const taskLastRun = (taskId: string) => {
-  if (taskId in lastRuns.value && lastRuns.value[taskId].length > 0) {
-    return lastRuns.value[taskId][0];
-  } else {
-    return null;
-  }
-};
 
 const fetchNode = async () => {
   try {
@@ -44,157 +21,12 @@ const fetchNode = async () => {
   }
 };
 
-const fetchTasksAndSubsribe = async () => {
-  try {
-    await useTasks.fetchTasksByNode(nodeId);
-    useTasks.subscribe();
-  } catch (error: unknown) {
-    useToasts.addToast((error as Error).message, "error");
-  }
-};
-
-const fetchLastRunsAndSubscribe = async () => {
-  try {
-    for (const task of tasks.value) {
-      await useRuns.fetchLastRuns(task.id, 1, false);
-    }
-    useRuns.subscribe();
-  } catch (error: unknown) {
-    useToasts.addToast((error as Error).message, "error");
-  }
-};
-
 onMounted(async () => {
-  // unsubscribe from runs collection just in case
-  useTasks.unsubscribe();
-  useRuns.unsubscribe();
-
   // fetch node
   await fetchNode();
-
-  // fetch tasks
-  await fetchTasksAndSubsribe();
-
-  // for each task fetch last run
-  await fetchLastRunsAndSubscribe();
 });
-
-onUnmounted(() => {
-  useTasks.unsubscribe();
-  useRuns.unsubscribe();
-});
-
-const gotoTask = (taskId: string) => {
-  router.push({
-    name: "task",
-    params: { taskId: taskId },
-  });
-};
-
-const gotoRun = (task: ITask, run: IRun) => {
-  if (run.status === CRunStatus.started) {
-    router.push({
-      name: "task-log",
-      params: { taskId: task.id },
-    });
-  } else {
-    router.push({
-      name: "run",
-      params: { taskId: task.id, id: run.id },
-    });
-  }
-};
-
-const toggleTaskActive = async (taskId: string) => {
-  const task = tasks.value.find((t: ITask) => t.id === taskId);
-  if (task) {
-    try {
-      task.active = !task.active;
-      useTasks.updateTask(task.id, { active: task.active });
-    } catch (error: unknown) {
-      task.active = !task.active;
-      useToasts.addToast((error as Error).message, "error");
-    }
-  }
-};
-
-const crumbs = [{ label: nodeId } as ICrumb];
 </script>
 
 <template>
-  <Breadcrumbs :crumbs="crumbs" />
-  <PageTitle title="Node tasks" />
-
-  <div class="overflow-x-auto">
-    <table class="table table-xs">
-      <!-- Table head -->
-      <thead>
-        <tr class="">
-          <th class=""></th>
-          <th class="sticky left-0 bg-base-100">id</th>
-          <th class="">schedule</th>
-          <th class="">command</th>
-          <th class="">run id</th>
-          <th class="">run status</th>
-          <th class="">running time</th>
-          <th class="">run updated</th>
-        </tr>
-      </thead>
-
-      <!-- Table body -->
-      <tbody>
-        <tr v-for="task in tasks" :key="task.id" class="">
-          <td class="">
-            <input
-              type="checkbox"
-              class="toggle toggle-sm"
-              :checked="task.active"
-              @change="toggleTaskActive(task.id)"
-            />
-          </td>
-
-          <td class="sticky left-0 bg-base-100">
-            <IdentifierUrl @click="gotoTask(task.id)" :id="task.id" />
-          </td>
-
-          <td>
-            <span class="whitespace-nowrap">
-              {{ task.schedule }}
-            </span>
-          </td>
-
-          <td>
-            <Command :command="task.command" />
-          </td>
-
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <IdentifierUrl
-                @click="gotoRun(task, taskLastRun(task.id))"
-                :id="taskLastRun(task.id)?.id"
-              />
-            </template>
-          </td>
-
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <RunStatus :run="taskLastRun(task.id)" />
-            </template>
-          </td>
-
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <RunTimeDiff :run="taskLastRun(task.id)" />
-            </template>
-          </td>
-
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <RunTimeAgo :datetime="taskLastRun(task.id)?.updated" />
-            </template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <TaskListView :entity-id="nodeId" entity-type="node" page-title="Node tasks" />
 </template>
