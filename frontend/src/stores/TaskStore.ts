@@ -1,6 +1,6 @@
-import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { RecordSubscription } from "pocketbase";
+import { computed, ref } from "vue";
 
 import { getPocketBaseInstance } from "./AuthStore";
 
@@ -14,14 +14,20 @@ export const useTaskStore = defineStore("tasks", () => {
   const getTask = computed(() => task.value);
 
   // methods
-  async function fetchTasks(projectId: string) {
-    const records = await pb
-      .collection(CCollectionName.tasks)
-      .getList<ITask>(1, 100, {
-        expand: "node,project",
-        sort: "-active,-created",
-        filter: pb.filter("project.id={:id}", { id: projectId }),
-      });
+  async function fetchTasksByProject(projectId: string) {
+    const filter = pb.filter("project.id={:id}", { id: projectId });
+    await _fetchTasks(filter);
+  }
+  async function fetchTasksByNode(nodeId: string) {
+    const filter = pb.filter("node.id={:id}", { id: nodeId });
+    await _fetchTasks(filter);
+  }
+  async function _fetchTasks(filter: any) {
+    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 100, {
+      expand: "node,project",
+      sort: "-active,-created",
+      filter: filter,
+    });
     tasks.value = records.items;
   }
   async function fetchTask(taskId: string) {
@@ -36,27 +42,24 @@ export const useTaskStore = defineStore("tasks", () => {
     await pb.collection(CCollectionName.tasks).update(taskId, updatedData);
   }
   function subscribe() {
-    pb.collection(CCollectionName.tasks).subscribe(
-      "*",
-      (data: RecordSubscription) => {
-        if (
-          data.record?.collectionName == CCollectionName.tasks &&
-          (data.action == "create" || data.action == "update")
-        ) {
-          _updateStoredTask(data.record.id, {
-            id: data.record.id,
-            updated: data.record.updated,
-            name: data.record.name,
-            command: data.record.command,
-            schedule: data.record.schedule,
-            node: data.record.node,
-            project: data.record.project,
-            active: data.record.active,
-            prepend_datetime: data.record.prepend_datetime,
-          });
-        }
+    pb.collection(CCollectionName.tasks).subscribe("*", (data: RecordSubscription) => {
+      if (
+        data.record?.collectionName == CCollectionName.tasks &&
+        (data.action == "create" || data.action == "update")
+      ) {
+        _updateStoredTask(data.record.id, {
+          id: data.record.id,
+          updated: data.record.updated,
+          name: data.record.name,
+          command: data.record.command,
+          schedule: data.record.schedule,
+          node: data.record.node,
+          project: data.record.project,
+          active: data.record.active,
+          prepend_datetime: data.record.prepend_datetime,
+        });
       }
-    );
+    });
   }
   function unsubscribe() {
     pb.collection(CCollectionName.tasks).unsubscribe();
@@ -65,7 +68,7 @@ export const useTaskStore = defineStore("tasks", () => {
   function _updateStoredTask(taskId: string, updatedData: Object) {
     // update state task
     const taskIndex: number = tasks.value.findIndex(
-      (task: ITask) => task.id === taskId
+      (task: ITask) => task.id === taskId,
     );
     if (taskIndex !== -1) {
       tasks.value[taskIndex] = {
@@ -81,6 +84,7 @@ export const useTaskStore = defineStore("tasks", () => {
     unsubscribe,
     fetchTask,
     updateTask,
-    fetchTasks,
+    fetchTasksByProject,
+    fetchTasksByNode,
   };
 });

@@ -11,7 +11,7 @@ import Command from "@/components/Command.vue";
 import RunStatus from "@/components/RunStatus.vue";
 import RunTimeAgo from "@/components/RunTimeAgo.vue";
 import PageTitle from "@/components/PageTitle.vue";
-import { useProjectStore } from "@/stores/ProjectStore";
+import { useNodeStore } from "@/stores/NodeStore";
 import { ICrumb, CRunStatus, IRun, ITask } from "@/types";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import RunTimeDiff from "@/components/RunTimeDiff.vue";
@@ -19,13 +19,13 @@ import RunTimeDiff from "@/components/RunTimeDiff.vue";
 const router = useRouter();
 const route = useRoute();
 const useToasts = useToastStore();
-const useProjects = useProjectStore();
+const useNodes = useNodeStore();
 const useTasks = useTaskStore();
 const useRuns = useRunStore();
 
-const projectId = Array.isArray(route.params.projectId)
-  ? route.params.projectId[0]
-  : route.params.projectId;
+const nodeId = Array.isArray(route.params.nodeId)
+  ? route.params.nodeId[0]
+  : route.params.nodeId;
 const tasks = computed(() => useTasks.getTasks);
 const lastRuns = computed(() => useRuns.getLastRuns);
 const taskLastRun = (taskId: string) => {
@@ -36,9 +36,9 @@ const taskLastRun = (taskId: string) => {
   }
 };
 
-const fetchProject = async () => {
+const fetchNode = async () => {
   try {
-    await useProjects.fetchProject(projectId);
+    await useNodes.fetchNode(nodeId);
   } catch (error: unknown) {
     useToasts.addToast((error as Error).message, "error");
   }
@@ -46,7 +46,7 @@ const fetchProject = async () => {
 
 const fetchTasksAndSubsribe = async () => {
   try {
-    await useTasks.fetchTasksByProject(projectId);
+    await useTasks.fetchTasksByNode(nodeId);
     useTasks.subscribe();
   } catch (error: unknown) {
     useToasts.addToast((error as Error).message, "error");
@@ -69,8 +69,8 @@ onMounted(async () => {
   useTasks.unsubscribe();
   useRuns.unsubscribe();
 
-  // fetch project
-  await fetchProject();
+  // fetch node
+  await fetchNode();
 
   // fetch tasks
   await fetchTasksAndSubsribe();
@@ -87,7 +87,7 @@ onUnmounted(() => {
 const gotoTask = (taskId: string) => {
   router.push({
     name: "task",
-    params: { projectId: projectId, taskId: taskId },
+    params: { taskId: taskId },
   });
 };
 
@@ -95,12 +95,12 @@ const gotoRun = (task: ITask, run: IRun) => {
   if (run.status === CRunStatus.started) {
     router.push({
       name: "task-log",
-      params: { projectId: projectId, taskId: task.id },
+      params: { taskId: task.id },
     });
   } else {
     router.push({
       name: "run",
-      params: { projectId: projectId, taskId: task.id, id: run.id },
+      params: { taskId: task.id, id: run.id },
     });
   }
 };
@@ -118,12 +118,12 @@ const toggleTaskActive = async (taskId: string) => {
   }
 };
 
-const crumbs = [{ label: projectId } as ICrumb];
+const crumbs = [{ label: nodeId } as ICrumb];
 </script>
 
 <template>
   <Breadcrumbs :crumbs="crumbs" />
-  <PageTitle title="Project tasks" />
+  <PageTitle title="Node tasks" />
 
   <div class="overflow-x-auto">
     <table class="table table-xs">

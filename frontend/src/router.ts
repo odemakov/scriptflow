@@ -1,5 +1,6 @@
 import config from "@/config";
 import HomeView from "@/views/HomeView.vue";
+import NodeView from "@/views/NodeView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 import ProjectView from "@/views/ProjectView.vue";
 import RunView from "@/views/RunView.vue";
@@ -30,6 +31,15 @@ const router = createRouter({
           component: ProjectView,
           meta: {
             title: "Project",
+            requireAuth: true,
+          },
+        },
+        {
+          path: "node/:nodeId",
+          name: "node",
+          component: NodeView,
+          meta: {
+            title: "Node",
             requireAuth: true,
           },
         },

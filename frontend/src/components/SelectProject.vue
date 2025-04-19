@@ -8,7 +8,7 @@ import IdentifierUrl from "@/components/IdentifierUrl.vue";
 const useProject = useProjectStore();
 const projects = computed(() => useProject.getProjects);
 
-const gotoTasks = (projectId: string) => {
+const gotoProject = (projectId: string) => {
   router.push({ name: "project", params: { projectId: projectId } });
 };
 
@@ -30,7 +30,7 @@ onMounted(async () => {
       <tbody>
         <tr v-for="project in projects" :key="project.id">
           <td class="p-1 md:p-2">
-            <IdentifierUrl :id="project.id" @click="gotoTasks(project.id)" />
+            <IdentifierUrl :id="project.id" @click="gotoProject(project.id)" />
           </td>
           <td class="p-1 md:p-2">{{ project.name }}</td>
           <td class="p-1 md:p-2 text-xs">{{ project.config }}</td>

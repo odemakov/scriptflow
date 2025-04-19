@@ -61,10 +61,12 @@ onUnmounted(() => {
   useRuns.unsubscribe();
 });
 
-const gotoProject = () => {
+const gotoEntity = (entityType: string, entityId?: string) => {
+  if (!entityId) return;
+
   router.push({
-    name: "project",
-    params: { projectId: props.task?.expand?.project?.id },
+    name: entityType,
+    params: { [`${entityType}Id`]: entityId },
   });
 };
 
@@ -118,24 +120,27 @@ const runTask = async () => {
         <table class="table table-xs">
           <tbody>
             <tr>
-              <td>Project</td>
-              <td>
-                <IdentifierUrl
-                  :id="props.task.expand?.project?.name"
-                  @click="gotoProject()"
-                />
-              </td>
-            </tr>
-            <tr>
               <td>Id</td>
               <td>
                 <Identifier :id="props.task.id" />
               </td>
             </tr>
             <tr>
+              <td>Project</td>
+              <td>
+                <IdentifierUrl
+                  :id="props.task.expand?.project?.name"
+                  @click="gotoEntity('project', props.task?.expand?.project?.id)"
+                />
+              </td>
+            </tr>
+            <tr>
               <td>Node</td>
               <td>
-                <Identifier :id="props.task.expand?.node?.host" />
+                <IdentifierUrl
+                  :id="props.task.expand?.node?.id"
+                  @click="gotoEntity('node', props.task?.expand?.node?.id)"
+                />
               </td>
             </tr>
             <tr>
