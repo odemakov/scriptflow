@@ -33,9 +33,7 @@ const lastRunStarted = computed(() => {
 const runTaskButtonDisabled = ref(false);
 
 // fold it on medium screens and below
-const isFolded = ref(
-  config.isXS.value || config.isSM.value || config.isMD.value,
-);
+const isFolded = ref(config.isXS.value || config.isSM.value || config.isMD.value);
 watch([config.isXS, config.isSM, config.isMD, config.isLG], () => {
   isFolded.value = config.isXS.value || config.isSM.value || config.isMD.value;
 });
@@ -99,9 +97,7 @@ const runTask = async () => {
 </script>
 
 <template>
-  <div
-    class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]"
-  >
+  <div class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]">
     <div class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="card-title">{{ props.task.name }}</h2>
@@ -149,14 +145,20 @@ const runTask = async () => {
             <tr>
               <td>Active</td>
               <td>
-                <TrueFalse :status="props.task.active" />
+                <TrueFalse
+                  v-if="props.task.active !== undefined"
+                  :status="props.task.active"
+                />
               </td>
             </tr>
 
             <tr>
               <td>Prepend datetime</td>
               <td>
-                <TrueFalse :status="props.task.prepend_datetime" />
+                <TrueFalse
+                  v-if="props.task.prepend_datetime !== undefined"
+                  :status="props.task.prepend_datetime"
+                />
               </td>
             </tr>
             <tr>
