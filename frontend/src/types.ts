@@ -130,8 +130,10 @@ export interface ITask {
   name: string;
   active: boolean;
   command: string;
+  schedule?: string;
   project: string;
   node: string;
+  prepend_datetime?: boolean;
   expand: {
     project?: IProject;
     node?: INode;

@@ -36,7 +36,7 @@ export const useTaskStore = defineStore("tasks", () => {
   }
   async function fetchTasks() {
     const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
-      sort: "project.id, id",
+      sort: "-updated",
     });
     tasks.value = records.items;
   }
