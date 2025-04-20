@@ -6,27 +6,37 @@ import { getPocketBaseInstance } from "./AuthStore";
 
 export const useTaskStore = defineStore("tasks", () => {
   const pb = getPocketBaseInstance();
-  const tasks = ref([] as ITask[]);
   const task = ref({} as ITask);
+  const tasks = ref([] as ITask[]);
+  const tasksByNode = ref([] as ITask[]);
+  const tasksByProject = ref([] as ITask[]);
 
   // getters
-  const getTasks = computed(() => tasks.value);
   const getTask = computed(() => task.value);
+  const getTasks = computed(() => tasks.value);
+  const getTasksByNode = computed(() => tasksByNode.value);
+  const getTasksByProject = computed(() => tasksByProject.value);
 
   // methods
   async function fetchTasksByProject(projectId: string) {
-    const filter = pb.filter("project.id={:id}", { id: projectId });
-    await _fetchTasks(filter);
-  }
-  async function fetchTasksByNode(nodeId: string) {
-    const filter = pb.filter("node.id={:id}", { id: nodeId });
-    await _fetchTasks(filter);
-  }
-  async function _fetchTasks(filter: any) {
-    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 100, {
+    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
       expand: "node,project",
       sort: "-active,-created",
-      filter: filter,
+      filter: pb.filter("project.id={:id}", { id: projectId }),
+    });
+    tasksByProject.value = records.items;
+  }
+  async function fetchTasksByNode(nodeId: string) {
+    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
+      expand: "node,project",
+      sort: "-active,-created",
+      filter: pb.filter("node.id={:id}", { id: nodeId }),
+    });
+    tasksByNode.value = records.items;
+  }
+  async function fetchTasks() {
+    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
+      sort: "project.id, id",
     });
     tasks.value = records.items;
   }
@@ -78,13 +88,16 @@ export const useTaskStore = defineStore("tasks", () => {
     }
   }
   return {
-    getTasks,
+    fetchTask,
+    fetchTasks,
+    fetchTasksByNode,
+    fetchTasksByProject,
     getTask,
+    getTasks,
+    getTasksByNode,
+    getTasksByProject,
     subscribe,
     unsubscribe,
-    fetchTask,
     updateTask,
-    fetchTasksByProject,
-    fetchTasksByNode,
   };
 });

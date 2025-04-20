@@ -11,13 +11,13 @@ import Command from "@/components/Command.vue";
 import RunStatus from "@/components/RunStatus.vue";
 import RunTimeAgo from "@/components/RunTimeAgo.vue";
 import PageTitle from "@/components/PageTitle.vue";
-import { ICrumb, CRunStatus, IRun, ITask } from "@/types";
+import { ICrumb, CRunStatus, IRun, ITask, CEntityType, EntityType } from "@/types";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import RunTimeDiff from "@/components/RunTimeDiff.vue";
 
 const props = defineProps<{
   entityId: string;
-  entityType: "node" | "project";
+  entityType: EntityType;
   pageTitle: string;
 }>();
 
@@ -26,7 +26,11 @@ const useToasts = useToastStore();
 const useTasks = useTaskStore();
 const useRuns = useRunStore();
 
-const tasks = computed(() => useTasks.getTasks);
+const tasks = computed(() => {
+  return props.entityType === CEntityType.node
+    ? useTasks.getTasksByNode
+    : useTasks.getTasksByProject;
+});
 const lastRuns = computed(() => useRuns.getLastRuns);
 const taskLastRun = (taskId: string) => {
   if (taskId in lastRuns.value && lastRuns.value[taskId].length > 0) {
@@ -38,7 +42,7 @@ const taskLastRun = (taskId: string) => {
 
 const fetchTasks = async () => {
   try {
-    if (props.entityType === "node") {
+    if (props.entityType === CEntityType.node) {
       await useTasks.fetchTasksByNode(props.entityId);
     } else {
       await useTasks.fetchTasksByProject(props.entityId);
@@ -79,7 +83,9 @@ onUnmounted(() => {
 
 const gotoTask = (taskId: string) => {
   const routeParams =
-    props.entityType === "project" ? { projectId: props.entityId, taskId } : { taskId };
+    props.entityType === CEntityType.project
+      ? { projectId: props.entityId, taskId }
+      : { taskId };
 
   router.push({
     name: "task",
@@ -89,7 +95,7 @@ const gotoTask = (taskId: string) => {
 
 const gotoRun = (task: ITask, run: IRun) => {
   const baseParams =
-    props.entityType === "project"
+    props.entityType === CEntityType.project
       ? { projectId: props.entityId, taskId: task.id }
       : { taskId: task.id };
 

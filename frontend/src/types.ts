@@ -155,3 +155,10 @@ export interface IRun {
   created: string;
   updated: string;
 }
+
+export const CEntityType = {
+  node: "node",
+  project: "project",
+} as const;
+
+export type EntityType = (typeof CEntityType)[keyof typeof CEntityType];
