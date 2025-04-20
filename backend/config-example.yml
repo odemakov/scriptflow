@@ -46,8 +46,8 @@ tasks:
     prepend_datetime: true
   - name: Random task 2
     project: project-1
-    command: "df; sleep $((10 + RANDOM % 21)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
-    schedule: "@every 1m"
+    command: "df; sleep $((5 + RANDOM % 11)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
+    schedule: "@every 5s"
     node: vm2-root
     active: false
     prepend_datetime: true

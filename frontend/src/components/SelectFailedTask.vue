@@ -46,6 +46,15 @@ const displayedTasks = computed(() => {
   }
 });
 
+// Sort tasks by runUpdated value
+const sortedTasks = computed(() => {
+  return displayedTasks.value.sort((a, b) => {
+    const dateA = new Date(a.runUpdated);
+    const dateB = new Date(b.runUpdated);
+    return dateB.getTime() - dateA.getTime();
+  });
+});
+
 // Navigate to task details
 const gotoTask = (taskId: string) => {
   router.push({ name: "task", params: { taskId } });
@@ -137,7 +146,7 @@ onUnmounted(() => {
       </thead>
       <tbody>
         <tr
-          v-for="task in displayedTasks"
+          v-for="task in sortedTasks"
           :key="task.id"
           class="hover:bg-gray-100"
           :class="{ hidden: task.consecutiveFailedCount == 0 }"
