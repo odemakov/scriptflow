@@ -85,10 +85,10 @@ const gotoTask = (taskId: string) => {
   const routeParams =
     props.entityType === CEntityType.project
       ? { projectId: props.entityId, taskId }
-      : { taskId };
+      : { nodeId: props.entityId, taskId };
 
   router.push({
-    name: "task",
+    name: props.entityType === CEntityType.project ? "project-task" : "node-task",
     params: routeParams,
   });
 };
@@ -97,16 +97,18 @@ const gotoRun = (task: ITask, run: IRun) => {
   const baseParams =
     props.entityType === CEntityType.project
       ? { projectId: props.entityId, taskId: task.id }
-      : { taskId: task.id };
+      : { nodeId: props.entityId, taskId: task.id };
 
   if (run.status === CRunStatus.started) {
     router.push({
-      name: "task-log",
+      name:
+        props.entityType === CEntityType.project ? "project-task-log" : "node-task-log",
       params: baseParams,
     });
   } else {
     router.push({
-      name: "run",
+      name:
+        props.entityType === CEntityType.project ? "project-task-run" : "node-task-run",
       params: { ...baseParams, id: run.id },
     });
   }

@@ -26,49 +26,118 @@ const router = createRouter({
           },
         },
         {
-          path: "project/:projectId",
-          name: "project",
-          component: ProjectView,
-          meta: {
-            title: "Project",
-            requireAuth: true,
-          },
+          path: "project",
+          children: [
+            {
+              path: ":projectId",
+              name: "project",
+              component: ProjectView,
+              meta: {
+                title: "Project",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "project-task",
+              path: ":projectId/task/:taskId/history",
+              component: TaskView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "project-task-log",
+              path: ":projectId/task/:taskId/log",
+              component: TaskLogView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              path: ":projectId/task/:taskId/:id",
+              name: "project-task-run",
+              component: RunView,
+              meta: {
+                title: "Run",
+                requireAuth: true,
+              },
+            },
+          ],
         },
         {
-          path: "node/:nodeId",
-          name: "node",
-          component: NodeView,
-          meta: {
-            title: "Node",
-            requireAuth: true,
-          },
+          path: "node",
+          children: [
+            {
+              path: ":nodeId",
+              name: "node",
+              component: NodeView,
+              meta: {
+                title: "Node",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "node-task",
+              path: ":nodeId/task/:taskId/history",
+              component: TaskView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "node-task-log",
+              path: ":nodeId/task/:taskId/log",
+              component: TaskLogView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              path: ":nodeId/task/:taskId/:id",
+              name: "node-task-run",
+              component: RunView,
+              meta: {
+                title: "Run",
+                requireAuth: true,
+              },
+            },
+          ],
         },
         {
-          name: "task",
-          path: "task/:taskId/history",
-          component: TaskView,
-          meta: {
-            title: "Task",
-            requireAuth: true,
-          },
-        },
-        {
-          name: "task-log",
-          path: "task/:taskId/log",
-          component: TaskLogView,
-          meta: {
-            title: "Task",
-            requireAuth: true,
-          },
-        },
-        {
-          path: "task/:taskId/:id",
-          name: "run",
-          component: RunView,
-          meta: {
-            title: "Run",
-            requireAuth: true,
-          },
+          path: "task",
+          children: [
+            {
+              name: "task",
+              path: ":taskId/history",
+              component: TaskView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              name: "task-log",
+              path: ":taskId/log",
+              component: TaskLogView,
+              meta: {
+                title: "Task",
+                requireAuth: true,
+              },
+            },
+            {
+              path: ":taskId/:id",
+              name: "task-run",
+              component: RunView,
+              meta: {
+                title: "Run",
+                requireAuth: true,
+              },
+            },
+          ],
         },
       ],
     },

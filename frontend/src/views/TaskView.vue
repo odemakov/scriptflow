@@ -15,6 +15,12 @@ const useToasts = useToastStore();
 const useTasks = useTaskStore();
 const router = useRouter();
 const route = useRoute();
+const projectId = Array.isArray(route.params.projectId)
+  ? route.params.projectId[0]
+  : route.params.projectId;
+const nodeId = Array.isArray(route.params.nodeId)
+  ? route.params.nodeId[0]
+  : route.params.nodeId;
 const taskId = Array.isArray(route.params.taskId)
   ? route.params.taskId[0]
   : route.params.taskId;
@@ -30,13 +36,44 @@ onMounted(async () => {
 });
 
 const gotoTaskLog = () => {
-  router.push({
-    name: "task-log",
-    params: { taskId: taskId },
-  });
+  const params: { taskId: string; projectId?: string; nodeId?: string } = { taskId };
+
+  if (projectId) {
+    params.projectId = projectId;
+    router.push({ name: "project-task-log", params });
+  } else if (nodeId) {
+    params.nodeId = nodeId;
+    router.push({ name: "node-task-log", params });
+  } else {
+    router.push({ name: "task-log", params });
+  }
 };
 
-const crumbs = [{ label: taskId } as ICrumb];
+const crumbs = computed(() => {
+  const baseCrumb = { label: taskId } as ICrumb;
+
+  if (projectId) {
+    return [
+      {
+        label: projectId,
+        to: () => router.push({ name: "project", params: { projectId } }),
+      } as ICrumb,
+      baseCrumb,
+    ];
+  }
+
+  if (nodeId) {
+    return [
+      {
+        label: nodeId,
+        to: () => router.push({ name: "node", params: { nodeId } }),
+      } as ICrumb,
+      baseCrumb,
+    ];
+  }
+
+  return [baseCrumb];
+});
 </script>
 
 <template>
@@ -54,7 +91,7 @@ const crumbs = [{ label: taskId } as ICrumb];
           role="tabpanel"
           class="tab-content bg-base-100 border-base-300 rounded-box p-6"
         >
-          <TaskRuns :task="task" />
+          <TaskRuns :task="task" :projectId="projectId" :nodeId="nodeId" />
         </div>
         <a role="tab" class="tab" @click="gotoTaskLog()">Logs</a>
         <div

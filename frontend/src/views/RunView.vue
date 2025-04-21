@@ -15,6 +15,12 @@ const useRuns = useRunStore();
 const route = useRoute();
 const router = useRouter();
 const runId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id;
+const projectId = Array.isArray(route.params.projectId)
+  ? route.params.projectId[0]
+  : route.params.projectId;
+const nodeId = Array.isArray(route.params.nodeId)
+  ? route.params.nodeId[0]
+  : route.params.nodeId;
 const taskId = Array.isArray(route.params.taskId)
   ? route.params.taskId[0]
   : route.params.taskId;
@@ -29,13 +35,42 @@ onMounted(async () => {
   }
 });
 
-const crumbs = [
-  {
-    to: () => router.push({ name: "task", params: { taskId: taskId } }),
+const crumbs = computed(() => {
+  const breadcrumbs = [];
+
+  // Add project or node crumb if available
+  if (projectId) {
+    breadcrumbs.push({
+      label: projectId,
+      to: () => router.push({ name: "project", params: { projectId } }),
+    } as ICrumb);
+  } else if (nodeId) {
+    breadcrumbs.push({
+      label: nodeId,
+      to: () => router.push({ name: "node", params: { nodeId } }),
+    } as ICrumb);
+  }
+
+  // Add task crumb
+  breadcrumbs.push({
     label: taskId,
-  } as ICrumb,
-  { label: runId } as ICrumb,
-];
+    to: () => {
+      const routeName = projectId ? "project-task" : nodeId ? "node-task" : "task";
+      const params = projectId
+        ? { projectId, taskId }
+        : nodeId
+          ? { nodeId, taskId }
+          : { taskId };
+
+      router.push({ name: routeName, params });
+    },
+  } as ICrumb);
+
+  // Add run crumb
+  breadcrumbs.push({ label: runId } as ICrumb);
+
+  return breadcrumbs;
+});
 </script>
 
 <template>

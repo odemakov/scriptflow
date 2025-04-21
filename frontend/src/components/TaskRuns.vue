@@ -10,6 +10,8 @@ import RunTimeDiff from "./RunTimeDiff.vue";
 
 const props = defineProps<{
   task: ITask;
+  projectId?: string;
+  nodeId?: string;
 }>();
 
 const router = useRouter();
@@ -18,20 +20,28 @@ const useRuns = useRunStore();
 const lastRuns = computed(() => useRuns.getLastRuns[props.task.id]);
 
 const gotoRun = (run: IRun) => {
-  if (run.status === CRunStatus.started) {
-    router.push({
-      name: "task-log",
-      params: {
-        projectId: props.task?.expand?.project.id,
-        taskId: props.task.id,
-      },
-    });
-  } else {
-    router.push({
-      name: "run",
-      params: { projectId: props.task?.expand?.project.id, id: run.id },
-    });
+  // Determine base name and params based on run status
+  const isRunning = run.status === CRunStatus.started;
+  const baseName = isRunning ? "task-log" : "task-run";
+  let routeName = baseName;
+  let params: Record<string, string> = { taskId: props.task.id };
+
+  // Add context-specific prefix and params
+  if (props.projectId) {
+    routeName = `project-${baseName}`;
+    params.projectId = props.projectId;
+  } else if (props.nodeId) {
+    routeName = `node-${baseName}`;
+    params.nodeId = props.nodeId;
   }
+
+  // Add run ID for completed runs
+  if (!isRunning) {
+    params.id = run.id;
+  }
+
+  // Navigate to the route
+  router.push({ name: routeName, params });
 };
 
 watch(

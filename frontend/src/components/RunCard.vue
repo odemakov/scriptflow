@@ -1,25 +1,30 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
+import { useRouter } from "vue-router";
 
-import Command from './Command.vue';
-import Identifier from './Identifier.vue';
-import IdentifierUrl from './IdentifierUrl.vue';
-import RunStatus from './RunStatus.vue';
+import Command from "./Command.vue";
+import Identifier from "./Identifier.vue";
+import IdentifierUrl from "./IdentifierUrl.vue";
+import RunStatus from "./RunStatus.vue";
 const props = defineProps<{
-  run: IRun,
-}>()
-const router = useRouter()
+  run: IRun;
+}>();
+const router = useRouter();
 
 const gotoTask = () => {
-  router.push({ name: 'task', params: { projectId: props.run?.expand?.project?.id, taskId: props.run?.expand?.task?.id } })
-}
-
+  router.push({
+    name: "task",
+    params: {
+      projectId: props.run?.expand?.project?.id,
+      taskId: props.run?.expand?.task?.id,
+    },
+  });
+};
 </script>
 
 <template>
   <div class="card card-compact bg-base-200 shadow-xl">
     <div class="card-body">
-      <h2 class="card-title">{{ props.run?.expand?.task?.name }}</h2>
+      <h2 class="card-title">{{ props.run?.id }}</h2>
       <Command v-if="props.run.command" :command="props.run.command" />
       <table class="table table-xs">
         <tbody>
