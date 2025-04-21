@@ -62,6 +62,7 @@ export let emptyBack = {
 export interface ICrumb {
   to: () => void;
   label: string;
+  type?: EntityType;
 }
 
 export interface INode {
@@ -161,6 +162,7 @@ export interface IRun {
 export const CEntityType = {
   node: "node",
   project: "project",
+  task: "task",
 } as const;
 
 export type EntityType = (typeof CEntityType)[keyof typeof CEntityType];

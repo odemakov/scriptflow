@@ -101,7 +101,7 @@ onMounted(async () => {
     await useTask.fetchTasks();
 
     // Initialize with all tasks, failure count = 0
-    tasks.value = useTask.getTasks.map((task) => ({
+    tasks.value = useTask.getTasks.map((task: ITask) => ({
       ...task,
       consecutiveFailedCount: 0,
       runUpdated: "",
