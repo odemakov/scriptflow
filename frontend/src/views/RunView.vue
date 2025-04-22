@@ -9,6 +9,7 @@ import PageTitle from "@/components/PageTitle.vue";
 import RunCard from "@/components/RunCard.vue";
 import RunLogTerminal from "@/components/RunLogTerminal.vue";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
+import { UpdateTitle } from "@/lib/helpers";
 
 const useToasts = useToastStore();
 const useRuns = useRunStore();
@@ -28,6 +29,7 @@ const taskId = Array.isArray(route.params.taskId)
 const run = computed(() => useRuns.getRun);
 
 onMounted(async () => {
+  UpdateTitle(`Run log: ${runId}`);
   try {
     await useRuns.fetchRun(runId);
   } catch (error: unknown) {

@@ -10,6 +10,7 @@ import TaskCard from "@/components/TaskCard.vue";
 import TaskRuns from "@/components/TaskRuns.vue";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import SubscriptionCard from "@/components/SubscriptionCard.vue";
+import { UpdateTitle } from "@/lib/helpers";
 
 const useToasts = useToastStore();
 const useTasks = useTaskStore();
@@ -28,6 +29,7 @@ const taskId = Array.isArray(route.params.taskId)
 const task = computed(() => useTasks.getTask);
 
 onMounted(async () => {
+  UpdateTitle(`Task history: ${taskId}`);
   try {
     await useTasks.fetchTask(taskId);
   } catch (error: unknown) {
@@ -35,17 +37,17 @@ onMounted(async () => {
   }
 });
 
-const gotoTaskLog = () => {
+const gotoTaskTail = () => {
   const params: { taskId: string; projectId?: string; nodeId?: string } = { taskId };
 
   if (projectId) {
     params.projectId = projectId;
-    router.push({ name: "project-task-log", params });
+    router.push({ name: "project-task-tail", params });
   } else if (nodeId) {
     params.nodeId = nodeId;
-    router.push({ name: "node-task-log", params });
+    router.push({ name: "node-task-tail", params });
   } else {
-    router.push({ name: "task-log", params });
+    router.push({ name: "task-tail", params });
   }
 };
 
@@ -93,7 +95,7 @@ const crumbs = computed(() => {
         >
           <TaskRuns :task="task" :projectId="projectId" :nodeId="nodeId" />
         </div>
-        <a role="tab" class="tab" @click="gotoTaskLog()">Logs</a>
+        <a role="tab" class="tab" @click="gotoTaskTail()">Tail</a>
         <div
           role="tabpanel"
           class="tab-content bg-base-100 border-base-300 rounded-box p-6"

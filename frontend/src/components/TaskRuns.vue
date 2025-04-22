@@ -22,7 +22,7 @@ const lastRuns = computed(() => useRuns.getLastRuns[props.task.id]);
 const gotoRun = (run: IRun) => {
   // Determine base name and params based on run status
   const isRunning = run.status === CRunStatus.started;
-  const baseName = isRunning ? "task-log" : "task-run";
+  const baseName = isRunning ? "task-tail" : "task-run";
   let routeName = baseName;
   let params: Record<string, string> = { taskId: props.task.id };
 

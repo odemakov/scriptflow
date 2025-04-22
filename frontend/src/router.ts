@@ -4,7 +4,7 @@ import NodeView from "@/views/NodeView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 import ProjectView from "@/views/ProjectView.vue";
 import RunView from "@/views/RunView.vue";
-import TaskLogView from "@/views/TaskLogView.vue";
+import TaskTailView from "@/views/TaskTailView.vue";
 import TaskView from "@/views/TaskView.vue";
 import { createRouter, createWebHashHistory } from "vue-router";
 
@@ -47,9 +47,9 @@ const router = createRouter({
               },
             },
             {
-              name: "project-task-log",
-              path: ":projectId/task/:taskId/log",
-              component: TaskLogView,
+              name: "project-task-tail",
+              path: ":projectId/task/:taskId/tail",
+              component: TaskTailView,
               meta: {
                 title: "Task",
                 requireAuth: true,
@@ -88,9 +88,9 @@ const router = createRouter({
               },
             },
             {
-              name: "node-task-log",
-              path: ":nodeId/task/:taskId/log",
-              component: TaskLogView,
+              name: "node-task-tail",
+              path: ":nodeId/task/:taskId/tail",
+              component: TaskTailView,
               meta: {
                 title: "Task",
                 requireAuth: true,
@@ -120,9 +120,9 @@ const router = createRouter({
               },
             },
             {
-              name: "task-log",
-              path: ":taskId/log",
-              component: TaskLogView,
+              name: "task-tail",
+              path: ":taskId/tail",
+              component: TaskTailView,
               meta: {
                 title: "Task",
                 requireAuth: true,

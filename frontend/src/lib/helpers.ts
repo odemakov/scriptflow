@@ -15,9 +15,7 @@ const TimeAgo = (datetime: string): string => {
 const TimeDiff = (start: string, end: string): string => {
   const startDate = new Date(start);
   const endDate = new Date(end);
-  return Seconds2human(
-    Math.round((endDate.getTime() - startDate.getTime()) / 1000),
-  );
+  return Seconds2human(Math.round((endDate.getTime() - startDate.getTime()) / 1000));
 };
 
 const Seconds2human = (seconds: number): string => {
@@ -41,15 +39,11 @@ const Seconds2human = (seconds: number): string => {
   const remainingSeconds = seconds % 60;
 
   if (minutes < 60) {
-    return remainingSeconds === 0
-      ? `${minutes}m`
-      : `${minutes}m${remainingSeconds}s`;
+    return remainingSeconds === 0 ? `${minutes}m` : `${minutes}m${remainingSeconds}s`;
   } else if (minutes < 1440) {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
-    return remainingMinutes === 0
-      ? `${hours}h`
-      : `${hours}h${remainingMinutes}m`;
+    return remainingMinutes === 0 ? `${hours}h` : `${hours}h${remainingMinutes}m`;
   } else {
     const days = Math.floor(minutes / 1440);
     const remainingHours = Math.floor((minutes % 1440) / 60);
@@ -73,4 +67,8 @@ const RunStatusClass = (status: string): string => {
   }
 };
 
-export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff };
+const UpdateTitle = (title?: string): void => {
+  document.title = title ? title : "ScriptFlow";
+};
+
+export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle };

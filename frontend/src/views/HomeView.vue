@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { useAuthStore } from "@/stores/AuthStore";
 import LoginForm from "@/components/LoginForm.vue";
 import SelectProject from "@/components/SelectProject.vue";
@@ -6,8 +7,13 @@ import SelectFailedTask from "@/components/SelectFailedTask.vue";
 import PageTitle from "@/components/PageTitle.vue";
 import SelectNode from "@/components/SelectNode.vue";
 import { CEntityType } from "@/types";
+import { UpdateTitle } from "@/lib/helpers";
 
 const auth = useAuthStore();
+
+onMounted(async () => {
+  UpdateTitle();
+});
 </script>
 
 <template>

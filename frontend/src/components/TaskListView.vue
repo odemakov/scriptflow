@@ -14,6 +14,7 @@ import PageTitle from "@/components/PageTitle.vue";
 import { ICrumb, CRunStatus, IRun, ITask, CEntityType, EntityType } from "@/types";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import RunTimeDiff from "@/components/RunTimeDiff.vue";
+import { UpdateTitle, Capitalize } from "@/lib/helpers";
 
 const props = defineProps<{
   entityId: string;
@@ -65,6 +66,8 @@ const fetchLastRunsAndSubscribe = async () => {
 };
 
 onMounted(async () => {
+  UpdateTitle(`${Capitalize(props.entityType)}: ${props.entityId}`);
+
   // unsubscribe from runs collection just in case
   useTasks.unsubscribe();
   useRuns.unsubscribe();
@@ -102,7 +105,9 @@ const gotoRun = (task: ITask, run: IRun) => {
   if (run.status === CRunStatus.started) {
     router.push({
       name:
-        props.entityType === CEntityType.project ? "project-task-log" : "node-task-log",
+        props.entityType === CEntityType.project
+          ? "project-task-tail"
+          : "node-task-tail",
       params: baseParams,
     });
   } else {

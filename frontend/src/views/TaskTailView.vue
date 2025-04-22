@@ -7,9 +7,10 @@ import { useToastStore } from "@/stores/ToastStore";
 import { ICrumb } from "@/types";
 import PageTitle from "@/components/PageTitle.vue";
 import TaskCard from "@/components/TaskCard.vue";
-import TaskLogTerminal from "@/components/TaskLogTerminal.vue";
+import TaskTailTerminal from "@/components/TaskTailTerminal.vue";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import SubscriptionCard from "@/components/SubscriptionCard.vue";
+import { UpdateTitle } from "@/lib/helpers";
 
 const useToasts = useToastStore();
 const useTasks = useTaskStore();
@@ -28,6 +29,7 @@ const taskId = Array.isArray(route.params.taskId)
 const task = computed(() => useTasks.getTask);
 
 onMounted(async () => {
+  UpdateTitle(`Task tail: ${taskId}`);
   try {
     await useTasks.fetchTask(taskId);
   } catch (error: unknown) {
@@ -78,7 +80,7 @@ const crumbs = computed(() => {
 
 <template>
   <Breadcrumbs :crumbs="crumbs" />
-  <PageTitle title="Task today's log" />
+  <PageTitle title="Task today's log tail" />
   <div class="flex flex-col lg:flex-row gap-4">
     <div v-if="task" class="w-full lg:basis-1/4 flex flex-col gap-4">
       <TaskCard :task="task" />
@@ -91,12 +93,12 @@ const crumbs = computed(() => {
           role="tabpanel"
           class="tab-content bg-base-100 border-base-300 rounded-box p-6"
         ></div>
-        <a role="tab" class="tab tab-active">Logs</a>
+        <a role="tab" class="tab tab-active">Tail</a>
         <div
           role="tabpanel"
           class="tab-content bg-base-100 border-base-300 rounded-box p-6"
         >
-          <TaskLogTerminal :task="task" />
+          <TaskTailTerminal :task="task" />
         </div>
       </div>
     </div>
