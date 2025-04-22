@@ -145,7 +145,7 @@ const crumbs = [{ label: props.entityId } as ICrumb];
       <thead>
         <tr class="">
           <th class=""></th>
-          <th class="sticky left-0 bg-base-100">id</th>
+          <th class="sticky left-0">id</th>
           <th class="">schedule</th>
           <th class="">command</th>
           <th class="">run id</th>
@@ -157,7 +157,7 @@ const crumbs = [{ label: props.entityId } as ICrumb];
 
       <!-- Table body -->
       <tbody>
-        <tr v-for="task in tasks" :key="task.id" class="">
+        <tr v-for="task in tasks" :key="task.id" class="hover:bg-base-200">
           <td class="">
             <input
               type="checkbox"
@@ -167,7 +167,7 @@ const crumbs = [{ label: props.entityId } as ICrumb];
             />
           </td>
 
-          <td class="sticky left-0 bg-base-100">
+          <td class="sticky left-0">
             <IdentifierUrl @click="gotoTask(task.id)" :id="task.id" />
           </td>
 

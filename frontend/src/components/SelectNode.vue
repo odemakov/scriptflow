@@ -31,7 +31,7 @@ onMounted(async () => {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="node in nodes" :key="node.id">
+        <tr v-for="node in nodes" :key="node.id" class="hover:bg-base-200">
           <td class="hidden md:table-cell p-1 md:p-2">
             <IdentifierUrl :id="node.id" @click="gotoNode(node.id)" />
           </td>

@@ -28,7 +28,7 @@ onMounted(async () => {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="project in projects" :key="project.id">
+        <tr v-for="project in projects" :key="project.id" class="hover:bg-base-200">
           <td class="p-1 md:p-2">
             <IdentifierUrl :id="project.id" @click="gotoProject(project.id)" />
           </td>

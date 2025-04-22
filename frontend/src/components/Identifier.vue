@@ -5,7 +5,7 @@ const props = defineProps<{
 </script>
 <template>
   <span
-    class="bg-slate-200 text-gray-700 font-mono whitespace-nowrap rounded-md py-1 px-2 my-1 text-xs"
+    class="bg-base-200 text-base-700 font-mono whitespace-nowrap rounded-md py-1 px-2 my-1 text-xs"
   >
     {{ props.id }}
   </span>

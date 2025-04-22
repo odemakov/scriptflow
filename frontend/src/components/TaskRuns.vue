@@ -79,7 +79,7 @@ onUnmounted(() => {
 
       <!-- Table body -->
       <tbody>
-        <tr v-for="run in lastRuns" :key="run.id" class="">
+        <tr v-for="run in lastRuns" :key="run.id" class="hover:bg-base-200">
           <td>
             <IdentifierUrl @click="gotoRun(run)" :id="run.id" />
           </td>

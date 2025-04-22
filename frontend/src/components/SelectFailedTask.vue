@@ -148,7 +148,7 @@ onUnmounted(() => {
         <tr
           v-for="task in sortedTasks"
           :key="task.id"
-          class="hover:bg-gray-100"
+          class="hover:bg-base-200"
           :class="{ hidden: task.consecutiveFailedCount == 0 }"
         >
           <td class="p-1 md:p-2">
