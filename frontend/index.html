@@ -2,8 +2,13 @@
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="./images/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="./images/favicon.svg" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="./images/favicon.svg"
+      id="favicon-svg"
+    />
+    <!-- fallback icons -->
     <link rel="shortcut icon" href="./images/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="./images/apple-touch-icon.png" />
     <link rel="manifest" href="./images/site.webmanifest" />
@@ -17,6 +22,18 @@
           prefersDark ? "dark" : "light",
         );
       })();
+      // Watch for theme changes and refresh the favicon
+      const darkModeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      darkModeMediaQuery.addEventListener("change", () => {
+        // Force refresh of favicon by changing the href with timestamp
+        const favicon = document.querySelector(
+          'link[rel="icon"][type="image/svg+xml"]',
+        );
+        if (favicon) {
+          const currentHref = favicon.getAttribute("href").split("?")[0];
+          favicon.setAttribute("href", `${currentHref}?t=${Date.now()}`);
+        }
+      });
     </script>
     <title>ScriptFlow</title>
   </head>
