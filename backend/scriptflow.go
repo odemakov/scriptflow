@@ -80,7 +80,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 		sf.app.Logger().Error("failed to schedule JobCheckNodeStatus", slog.Any("error", err))
 	}
 
-	// schedule JobSendNotofocations task to run every 30 seconds
+	// schedule JobSendNotifications task to run every 30 seconds
 	_, err = sf.scheduler.NewJob(
 		gocron.DurationJob(30*time.Second),
 		gocron.NewTask(func() {
@@ -104,6 +104,19 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 	)
 	if err != nil {
 		sf.app.Logger().Error("failed to schedule JobRemoveOutdatedLogs", slog.Any("error", err))
+	}
+
+	// schedule JobRemoveOutdatedRecords task
+	_, err = sf.scheduler.NewJob(
+		gocron.CronJob("39 1 * * *", false),
+		gocron.NewTask(func() {
+			go sf.JobRemoveOutdatedRecords()
+		}),
+		gocron.WithTags(SystemTask, JobRemoveOutdatedRecords),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to schedule JobRemoveOutdatedRecords", slog.Any("error", err))
 	}
 }
 
@@ -374,32 +387,17 @@ func (sf *ScriptFlow) RemoveTaskLogs(taskId string) error {
 }
 
 func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
-	projects, err := sf.app.FindAllRecords(CollectionProjects)
+	projects, err := sf.getProjects()
 	if err != nil {
-		sf.app.Logger().Error("failed to query project collection", slog.Any("error", err))
 		return
 	}
 
 	for _, project := range projects {
 		sf.app.Logger().Info("start remove outdated files for project", projectAttrs(project))
 
-		logsMaxDays, err := GetCollectionConfigAttr(project, "logsMaxDays", LogsMaxDays)
+		cutoff, tasks, err := sf.getProjectRetentionDetails(project)
 		if err != nil {
-			sf.app.Logger().Error("failed to get project's logsMaxDays attr", slog.Any("error", err))
 			continue
-		}
-
-		// logsMaxDays is returned as an interface{}, so assert its type
-		logsMaxDaysInt, ok := logsMaxDays.(int)
-		if !ok {
-			sf.app.Logger().Error("unexpected type for logsMaxDays, expected int, got: %T\n", logsMaxDays)
-			continue
-		}
-
-		tasks, err := sf.app.FindAllRecords(CollectionTasks, dbx.HashExp{"project": project.Id})
-		if err != nil {
-			sf.app.Logger().Error("failed to query tasks collection", slog.Any("error", err))
-			return
 		}
 
 		for _, task := range tasks {
@@ -410,9 +408,6 @@ func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 				sf.app.Logger().Error("failed to read task log directory", taskAttrs(task), slog.Any("error", err))
 				continue
 			}
-
-			// Calculate cutoff time, add one extra day
-			cutoff := time.Now().AddDate(0, 0, -logsMaxDaysInt-1)
 
 			// Iterate over files and remove outdated logs
 			for _, file := range files {
@@ -440,6 +435,82 @@ func (sf *ScriptFlow) JobRemoveOutdatedLogs() {
 			}
 		}
 	}
+}
+
+func (sf *ScriptFlow) JobRemoveOutdatedRecords() {
+	projects, err := sf.getProjects()
+	if err != nil {
+		return
+	}
+
+	for _, project := range projects {
+		sf.app.Logger().Info("start remove outdated records for project", projectAttrs(project))
+
+		cutoff, tasks, err := sf.getProjectRetentionDetails(project)
+		if err != nil {
+			continue
+		}
+
+		for _, task := range tasks {
+			query := sf.app.DB().Delete(
+				CollectionRuns,
+				dbx.NewExp(
+					"task = {:task} AND created < {:created}",
+					dbx.Params{"task": task.Id, "created": cutoff},
+				))
+			result, err := query.Execute()
+			if err != nil {
+				sf.app.Logger().Error("failed to delete runs", slog.Any("error", err))
+				continue
+			}
+
+			affected, _ := result.RowsAffected()
+			if affected > 0 {
+				sf.app.Logger().Info("deleted outdated run records",
+					slog.Int64("count", affected),
+					slog.String("taskId", task.Id),
+					slog.Time("olderThan", cutoff),
+				)
+			}
+		}
+	}
+}
+
+// retrieves all projects
+func (sf *ScriptFlow) getProjects() ([]*core.Record, error) {
+	projects, err := sf.app.FindAllRecords(CollectionProjects)
+	if err != nil {
+		sf.app.Logger().Error("failed to query project collection", slog.Any("error", err))
+		return nil, err
+	}
+	return projects, nil
+}
+
+// extracts retention policy details for a project
+func (sf *ScriptFlow) getProjectRetentionDetails(project *core.Record) (time.Time, []*core.Record, error) {
+	logsMaxDays, err := GetCollectionConfigAttr(project, "logsMaxDays", LogsMaxDays)
+	if err != nil {
+		sf.app.Logger().Error("failed to get project's logsMaxDays attr", slog.Any("error", err))
+		return time.Time{}, nil, err
+	}
+
+	// logsMaxDays is returned as an interface{}, so assert its type
+	logsMaxDaysInt, ok := logsMaxDays.(int)
+	if !ok {
+		sf.app.Logger().Error("unexpected type for logsMaxDays, expected int, got: %T\n", logsMaxDays)
+		return time.Time{}, nil, fmt.Errorf("unexpected type for logsMaxDays")
+	}
+
+	tasks, err := sf.app.FindAllRecords(CollectionTasks, dbx.HashExp{"project": project.Id})
+	if err != nil {
+		sf.app.Logger().Error("failed to query tasks collection", slog.Any("error", err))
+		return time.Time{}, nil, err
+	}
+
+	// Calculate cutoff time, add one extra day
+	cutoff := time.Now().AddDate(0, 0, -logsMaxDaysInt-1)
+
+	return cutoff, tasks, nil
 }
 
 func (sf *ScriptFlow) JobSendNotifications() {

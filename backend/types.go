@@ -24,16 +24,17 @@ const (
 )
 
 const (
-	NodeStatusOnline      = "online"
-	NodeStatusOffline     = "offline"
-	SchedulePeriod        = 60 // max delay in seconds for tasks with @every schedule
-	LogSeparator          = "[%s] [scriptflow] run %s"
-	LogsMaxDays           = 90
-	SendMaxErrorCount     = 3
-	JobCheckNodeStatus    = "check-node-status"
-	JobRemoveOutdatedLogs = "remove-outdated-logs"
-	JobSendNotifications  = "send-notifications"
-	SystemTask            = "system-task"
+	NodeStatusOnline         = "online"
+	NodeStatusOffline        = "offline"
+	SchedulePeriod           = 60 // max delay in seconds for tasks with @every schedule
+	LogSeparator             = "[%s] [scriptflow] run %s"
+	LogsMaxDays              = 90
+	SendMaxErrorCount        = 3
+	JobCheckNodeStatus       = "check-node-status"
+	JobRemoveOutdatedLogs    = "remove-outdated-logs"
+	JobRemoveOutdatedRecords = "remove-outdated-records"
+	JobSendNotifications     = "send-notifications"
+	SystemTask               = "system-task"
 )
 
 const (
