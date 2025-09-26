@@ -120,15 +120,10 @@ const gotoRun = (task: ITask, run: IRun) => {
 };
 
 const toggleTaskActive = async (taskId: string) => {
-  const task = tasks.value.find((t: ITask) => t.id === taskId);
-  if (task) {
-    try {
-      task.active = !task.active;
-      useTasks.updateTask(task.id, { active: task.active });
-    } catch (error: unknown) {
-      task.active = !task.active;
-      useToasts.addToast((error as Error).message, "error");
-    }
+  try {
+    await useTasks.toggleTaskActive(taskId);
+  } catch (error: unknown) {
+    useToasts.addToast((error as Error).message, "error");
   }
 };
 

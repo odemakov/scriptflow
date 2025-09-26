@@ -51,6 +51,35 @@ export const useTaskStore = defineStore("tasks", () => {
   async function updateTask(taskId: string, updatedData: Object) {
     await pb.collection(CCollectionName.tasks).update(taskId, updatedData);
   }
+
+  async function toggleTaskActive(taskId: string) {
+    // Find task in all possible arrays and toggle optimistically
+    const taskArrays = [tasks.value, tasksByNode.value, tasksByProject.value, [task.value]];
+    let foundTask: ITask | null = null;
+
+    for (const taskArray of taskArrays) {
+      const taskInArray = taskArray.find((t: ITask) => t.id === taskId);
+      if (taskInArray) {
+        foundTask = taskInArray;
+        taskInArray.active = !taskInArray.active;
+      }
+    }
+
+    if (foundTask) {
+      try {
+        await updateTask(taskId, { active: foundTask.active });
+      } catch (error: unknown) {
+        // Rollback on error - toggle back in all arrays
+        for (const taskArray of taskArrays) {
+          const taskInArray = taskArray.find((t: ITask) => t.id === taskId);
+          if (taskInArray) {
+            taskInArray.active = !taskInArray.active;
+          }
+        }
+        throw error; // Re-throw so components can handle toast
+      }
+    }
+  }
   function subscribe() {
     pb.collection(CCollectionName.tasks).subscribe("*", (data: RecordSubscription) => {
       if (
@@ -99,5 +128,6 @@ export const useTaskStore = defineStore("tasks", () => {
     subscribe,
     unsubscribe,
     updateTask,
+    toggleTaskActive,
   };
 });

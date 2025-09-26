@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, watch, onUnmounted, ref } from "vue";
+import { computed, watch, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import Command from "./Command.vue";
 import Identifier from "./Identifier.vue";
 import IdentifierUrl from "./IdentifierUrl.vue";
 import TrueFalse from "./TrueFalse.vue";
+import MenuIcon from "./icons/MenuIcon.vue";
 import config from "@/config";
 import { useRunStore } from "@/stores/RunStore";
 import { useTaskStore } from "@/stores/TaskStore";
@@ -37,8 +38,16 @@ const isFolded = ref(config.isXS.value || config.isSM.value || config.isMD.value
 watch([config.isXS, config.isSM, config.isMD, config.isLG], () => {
   isFolded.value = config.isXS.value || config.isSM.value || config.isMD.value;
 });
+const closeDropdown = () => {
+  const elem = document.activeElement;
+  if (elem instanceof HTMLElement) {
+    elem.blur();
+  }
+};
+
 const toggleFold = () => {
   isFolded.value = !isFolded.value;
+  closeDropdown();
 };
 
 watch(
@@ -57,10 +66,6 @@ watch(
   },
 );
 
-onUnmounted(() => {
-  useRuns.unsubscribe();
-});
-
 const gotoEntity = (entityType: string, entityId?: string) => {
   if (!entityId) return;
 
@@ -70,7 +75,17 @@ const gotoEntity = (entityType: string, entityId?: string) => {
   });
 };
 
+const toggleTaskActive = async () => {
+  closeDropdown();
+  try {
+    await useTask.toggleTaskActive(props.task.id);
+  } catch (error: unknown) {
+    useToasts.addToast((error as Error).message, "error");
+  }
+};
+
 const runTask = async () => {
+  closeDropdown();
   runTaskButtonDisabled.value = true;
 
   const oldSchedule = props.task.schedule;
@@ -103,19 +118,44 @@ const runTask = async () => {
     <div class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="card-title">{{ props.task.name }}</h2>
-        <button class="btn btn-xs text-xs" @click="toggleFold">
-          <span v-if="isFolded">show</span>
-          <span v-else>hide</span>
-        </button>
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-xs">
+            <MenuIcon />
+          </div>
+          <ul
+            tabindex="0"
+            class="dropdown-content menu bg-base-100 rounded-box z-[1] w-40 p-2 shadow"
+          >
+            <li>
+              <a @click="toggleTaskActive">
+                <span v-if="props.task.active">Turn off</span>
+                <span v-else>Turn on</span>
+              </a>
+            </li>
+            <li>
+              <a
+                v-if="!(runTaskButtonDisabled || lastRunStarted || !props.task.active)"
+                @click="runTask()"
+              >
+                Run once
+              </a>
+              <span
+                v-else
+                class="text-base-300 px-3 py-2 block disabled-menu-item"
+              >
+                Run once
+              </span>
+            </li>
+            <li>
+              <a @click="toggleFold">
+                <span v-if="isFolded">Show details</span>
+                <span v-else>Hide details</span>
+              </a>
+            </li>
+          </ul>
+        </div>
       </div>
       <div :class="{ hidden: isFolded }">
-        <button
-          class="btn btn-xs text-xs"
-          :disabled="runTaskButtonDisabled || lastRunStarted"
-          @click="runTask()"
-        >
-          Run once
-        </button>
         <Command v-if="props.task.command" :command="props.task.command" />
         <table class="table table-xs">
           <tbody>
@@ -180,3 +220,9 @@ const runTask = async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.disabled-menu-item {
+  cursor: not-allowed !important;
+}
+</style>
