@@ -51,12 +51,13 @@ type ScriptFlowLocks struct {
 }
 
 type ScriptFlow struct {
-	app       *pocketbase.PocketBase
-	config    *Config
-	scheduler gocron.Scheduler
-	sshPool   *sshrun.Pool
-	locks     *ScriptFlowLocks
-	logsDir   string
+	app            *pocketbase.PocketBase
+	config         *Config
+	configFilePath string
+	scheduler      gocron.Scheduler
+	sshPool        *sshrun.Pool
+	locks          *ScriptFlowLocks
+	logsDir        string
 }
 
 // type Node struct {

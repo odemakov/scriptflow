@@ -15,7 +15,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func NewScriptFlow(app *pocketbase.PocketBase, config *Config) (*ScriptFlow, error) {
+func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath string) (*ScriptFlow, error) {
 	// get home directory of current user
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -34,12 +34,13 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config) (*ScriptFlow, err
 	scheduler.Start()
 
 	return &ScriptFlow{
-		app:       app,
-		config:    config,
-		sshPool:   sshPool,
-		scheduler: scheduler,
-		locks:     &ScriptFlowLocks{},
-		logsDir:   filepath.Join(app.DataDir(), "..", "sf_logs"),
+		app:            app,
+		config:         config,
+		configFilePath: configFilePath,
+		sshPool:        sshPool,
+		scheduler:      scheduler,
+		locks:          &ScriptFlowLocks{},
+		logsDir:        filepath.Join(app.DataDir(), "..", "sf_logs"),
 	}, nil
 }
 
@@ -635,3 +636,31 @@ func (sf *ScriptFlow) createLogFile(taskId string) (*os.File, error) {
 	}
 	return os.Create(filePath)
 }
+
+func (sf *ScriptFlow) Reload() error {
+	sf.app.Logger().Info("Reload() method started")
+
+	// Load new config from stored path
+	if sf.configFilePath == "" {
+		sf.app.Logger().Info("No config file to reload - skipping")
+		return nil
+	}
+
+	newConfig, err := NewConfig(sf.configFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load new config: %w", err)
+	}
+
+	// Update config reference
+	sf.config = newConfig
+
+	// Update database from new config
+	if err := sf.UpdateFromConfig(); err != nil {
+		return fmt.Errorf("failed to update from config: %w", err)
+	}
+
+	sf.scheduleActiveTasks()
+
+	return nil
+}
+
