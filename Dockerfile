@@ -9,7 +9,7 @@ COPY frontend ./
 RUN npm run build
 
 # Build Backend
-FROM golang:1.23-alpine AS builder-backend
+FROM golang:1.24-alpine AS builder-backend
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -47,7 +47,7 @@ EXPOSE 22
 CMD ["/usr/sbin/sshd", "-D"]
 
 # Development Backend
-FROM golang:1.23-alpine AS dev-backend
+FROM golang:1.24-alpine AS dev-backend
 WORKDIR /app
 
 RUN apk add --no-cache openssh-client
@@ -58,7 +58,7 @@ RUN go mod download
 COPY backend/*.go ./
 COPY backend/migrations/*.go ./migrations/
 
-RUN go install github.com/air-verse/air@latest
+RUN go install 'github.com/air-verse/air@<v1.63.0'
 
 COPY --from=dev-vm /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub
 COPY --from=dev-vm /root/.ssh/id_rsa /root/.ssh/id_rsa
@@ -67,7 +67,8 @@ EXPOSE 8090
 CMD [ \
     "air", \
     "--build.cmd", "go build -o scriptflow", \
-    "--build.bin", "./scriptflow serve --http 0.0.0.0:8090 --dev --config /app/config-example.yml", \
+    "--build.bin", "./scriptflow", \
+    "--build.args_bin", "serve --http 0.0.0.0:8090 --dev --config /app/config-example.yml", \
     "--build.exclude_dir", "pb_data,sf_logs,frontend/node_modules,../frontend/dist" \
 ]
 
