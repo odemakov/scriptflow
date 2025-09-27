@@ -7,6 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-co-op/gocron/v2 v2.16.2
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/odemakov/sshrun v0.0.5
 	github.com/pocketbase/dbx v1.11.0
@@ -30,7 +31,6 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
