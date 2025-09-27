@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import "@xterm/xterm/css/xterm.css";
-import { watch, ref, onMounted, onUnmounted } from "vue";
+import { watch, ref, onMounted, onBeforeUnmount } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 
@@ -81,7 +81,7 @@ onMounted(() => {
   });
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   window.removeEventListener("resize", handleResize);
   term.dispose();
 });

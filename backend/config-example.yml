@@ -39,7 +39,7 @@ tasks:
     prepend_datetime: true
   - name: Random task 1
     project: project-1
-    command: "df; sleep $((5 + RANDOM % 11)); df; exit $((RANDOM % 2 == 0 ? 0 : 1))"
+    command: "echo 'start'; t=$((5 + RANDOM % 6)); echo \"sleep for $t\"; sleep $t; for i in 1 2 3 4 5 6 7 8 9 10; do echo $i; sleep 1; done; echo 'end'"
     schedule: "@every 5s"
     node: vm1-root
     active: true

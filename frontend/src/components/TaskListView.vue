@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 
 import { useToastStore } from "@/stores/ToastStore";
@@ -79,7 +79,7 @@ onMounted(async () => {
   await fetchLastRunsAndSubscribe();
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   useTasks.unsubscribe();
   useRuns.unsubscribe();
 });

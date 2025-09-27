@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import router from "@/router";
 
 import { useTaskStore } from "@/stores/TaskStore";
@@ -115,7 +115,7 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   // Clean up subscription
   useRuns.unsubscribe();
 });

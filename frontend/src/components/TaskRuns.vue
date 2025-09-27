@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted, watch, computed } from "vue";
+import { onBeforeUnmount, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useRunStore } from "@/stores/RunStore";
 import { useToastStore } from "@/stores/ToastStore";
@@ -56,7 +56,7 @@ watch(
   },
 );
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   useRuns.unsubscribe();
 });
 </script>

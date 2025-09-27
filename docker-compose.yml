@@ -7,6 +7,7 @@ services:
       target: dev-frontend
     volumes:
       - ./frontend:/app
+      # preserve node_modules between restarts
       - /app/node_modules
     ports:
       - "4000:4000"

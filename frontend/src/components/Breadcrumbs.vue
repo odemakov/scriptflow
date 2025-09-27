@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ICrumb } from "@/types";
 
@@ -24,7 +24,7 @@ onMounted(() => {
   window.addEventListener("keydown", handleKeyPress);
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeyPress);
 });
 </script>
