@@ -36,7 +36,7 @@ func loadConfig(configFilename string) *Config {
 	return config
 }
 
-func reloadCommand(app *pocketbase.PocketBase, configFilename string) error {
+func reloadCommand(app *pocketbase.PocketBase) error {
 	// Find running scriptflow process and send SIGHUP signal
 	pid, err := findScriptFlowPID(app.DataDir())
 	if err != nil {
@@ -104,10 +104,16 @@ func setupReloadSignalHandler(sf *ScriptFlow) {
 	signal.Notify(sigChan, syscall.SIGHUP)
 
 	go func() {
+		defer signal.Stop(sigChan)
 		for {
-			<-sigChan
-			if err := sf.Reload(); err != nil {
-				sf.app.Logger().Error("failed to reload configuration", slog.Any("error", err))
+			select {
+			case <-sf.ctx.Done():
+				sf.app.Logger().Info("Signal handler shutting down")
+				return
+			case <-sigChan:
+				if err := sf.Reload(); err != nil {
+					sf.app.Logger().Error("failed to reload configuration", slog.Any("error", err))
+				}
 			}
 		}
 	}()
@@ -138,7 +144,7 @@ func main() {
 		Use:   "reload",
 		Short: "Reload configuration from file",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := reloadCommand(app, configFilename); err != nil {
+			if err := reloadCommand(app); err != nil {
 				log.Fatal("reload failed: ", err)
 			}
 		},
@@ -194,8 +200,12 @@ func initScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath s
 func (sf *ScriptFlow) setupScheduler() {
 	// schedule system tasks
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		// Insert/update database from config file
-		if sf.config != nil {
+		// update database from config file
+		sf.configMutex.RLock()
+		hasConfig := sf.config != nil
+		sf.configMutex.RUnlock()
+
+		if hasConfig {
 			sf.UpdateFromConfig()
 		}
 
@@ -244,7 +254,17 @@ func (sf *ScriptFlow) setupScheduler() {
 	// Remove scheduled task
 	sf.app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == CollectionTasks {
-			sf.scheduler.RemoveByTags(e.Record.Id)
+			// Remove job using job tracking system
+			if job, exists := sf.getActiveJob(e.Record.Id); exists {
+				if err := sf.scheduler.RemoveJob(job.ID()); err != nil {
+					sf.app.Logger().Error("failed to remove deleted task job",
+						slog.String("taskId", e.Record.Id),
+						slog.Any("error", err))
+				} else {
+					sf.removeActiveJob(e.Record.Id)
+					sf.app.Logger().Info("removed deleted task job", slog.String("taskId", e.Record.Id))
+				}
+			}
 			// it can take a while to remove all task logs, so we will do it in background
 			go sf.RemoveTaskLogs(e.Record.Id)
 		}
@@ -252,6 +272,9 @@ func (sf *ScriptFlow) setupScheduler() {
 	})
 
 	sf.app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
+		// Cancel context to clean up goroutines
+		sf.cancelFunc()
+
 		// make sure app is bootstrapped before marking tasks as interrupted
 		if sf.app.IsBootstrapped() {
 			// Stop scheduler on app stop

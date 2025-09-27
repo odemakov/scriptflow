@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
@@ -34,6 +35,7 @@ const (
 	JobRemoveOutdatedLogs    = "remove-outdated-logs"
 	JobRemoveOutdatedRecords = "remove-outdated-records"
 	JobSendNotifications     = "send-notifications"
+	JobReconcileJobs         = "reconcile-jobs"
 	SystemTask               = "system-task"
 )
 
@@ -58,6 +60,12 @@ type ScriptFlow struct {
 	sshPool        *sshrun.Pool
 	locks          *ScriptFlowLocks
 	logsDir        string
+	configMutex    sync.RWMutex
+	reloadMutex    sync.Mutex
+	ctx            context.Context
+	cancelFunc     context.CancelFunc
+	activeJobs     map[string]gocron.Job
+	jobsMutex      sync.RWMutex
 }
 
 // type Node struct {

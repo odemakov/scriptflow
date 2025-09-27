@@ -92,6 +92,9 @@ func NewConfig(configFile string) (*Config, error) {
 
 // function which inserts or updates database records according to the config file
 func (sf *ScriptFlow) UpdateFromConfig() error {
+	sf.configMutex.RLock()
+	defer sf.configMutex.RUnlock()
+
 	sf.updateFromConfigProject()
 	sf.updateFromConfigNode()
 	sf.updateFromConfigTasks()

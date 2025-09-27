@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -33,6 +34,8 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath st
 	}
 	scheduler.Start()
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &ScriptFlow{
 		app:            app,
 		config:         config,
@@ -41,6 +44,9 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath st
 		scheduler:      scheduler,
 		locks:          &ScriptFlowLocks{},
 		logsDir:        filepath.Join(app.DataDir(), "..", "sf_logs"),
+		ctx:            ctx,
+		cancelFunc:     cancel,
+		activeJobs:     make(map[string]gocron.Job),
 	}, nil
 }
 
@@ -119,6 +125,19 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 	if err != nil {
 		sf.app.Logger().Error("failed to schedule JobRemoveOutdatedRecords", slog.Any("error", err))
 	}
+
+	// schedule JobReconcileJobs task to run every hour
+	_, err = sf.scheduler.NewJob(
+		gocron.CronJob("0 * * * *", false),
+		gocron.NewTask(func() {
+			go sf.reconcileJobs()
+		}),
+		gocron.WithTags(SystemTask, JobReconcileJobs),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to schedule JobReconcileJobs", slog.Any("error", err))
+	}
 }
 
 func (sf *ScriptFlow) scheduleActiveTasks() {
@@ -144,45 +163,77 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 	sf.locks.scheduleTask.Lock()
 	defer sf.locks.scheduleTask.Unlock()
 
-	// remove existing task
-	sf.scheduler.RemoveByTags(task.GetString("id"))
+	taskId := task.GetString("id")
 
-	// schedule new task if active
-	if task.GetBool("active") {
-		// log scheduled task with task and node details
-		sf.app.Logger().Info("schedule task", taskAttrs(task))
-		schedule := task.GetString("schedule")
-		// if schedule starts with @every, it is a duration schedule
-		if strings.HasPrefix(schedule, "@every ") {
-			duration, err := time.ParseDuration(schedule[7:])
-			if err != nil {
-				sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("error", err))
-				return
-			}
-			// spread tasks by 10% of duration to avoid running them simultaneously
-			min, max := durationMinMax(duration)
-			_, err = sf.scheduler.NewJob(
-				gocron.DurationRandomJob(min, max),
-				gocron.NewTask(sf.runTask, task.GetString("id")),
-				gocron.WithTags(task.GetString("id")),
-				gocron.WithSingletonMode(gocron.LimitModeReschedule),
-			)
-			if err != nil {
-				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("error", err))
-				return
-			}
-		} else {
-			_, err := sf.scheduler.NewJob(
-				gocron.CronJob(schedule, false),
-				gocron.NewTask(sf.runTask, task.GetString("id")),
-				gocron.WithTags(task.GetString("id")),
-				gocron.WithSingletonMode(gocron.LimitModeReschedule),
-			)
-			if err != nil {
-				sf.app.Logger().Error("failed to schedule task", taskAttrs(task), slog.Any("error", err))
-				return
+	// Check if job already exists
+	existingJob, jobExists := sf.getActiveJob(taskId)
+
+	// If task is not active, remove the job if it exists
+	if !task.GetBool("active") {
+		if jobExists {
+			if err := sf.scheduler.RemoveJob(existingJob.ID()); err != nil {
+				sf.app.Logger().Error("failed to remove inactive task", taskAttrs(task), slog.Any("error", err))
+			} else {
+				sf.removeActiveJob(taskId)
+				sf.app.Logger().Info("removed inactive task", taskAttrs(task))
 			}
 		}
+		return
+	}
+
+	// Task is active - create job definition
+	sf.app.Logger().Info("schedule task", taskAttrs(task))
+	schedule := task.GetString("schedule")
+
+	var jobDefinition gocron.JobDefinition
+
+	// Parse schedule to create appropriate job definition
+	if strings.HasPrefix(schedule, "@every ") {
+		duration, parseErr := time.ParseDuration(schedule[7:])
+		if parseErr != nil {
+			sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("error", parseErr))
+			return
+		}
+		// spread tasks by 10% of duration to avoid running them simultaneously
+		min, max := durationMinMax(duration)
+		jobDefinition = gocron.DurationRandomJob(min, max)
+	} else {
+		jobDefinition = gocron.CronJob(schedule, false)
+	}
+
+	taskFunc := gocron.NewTask(sf.runTask, taskId)
+	jobOptions := []gocron.JobOption{
+		gocron.WithTags(taskId),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	}
+
+	if jobExists {
+		// Update existing job
+		updatedJob, err := sf.scheduler.Update(
+			existingJob.ID(),
+			jobDefinition,
+			taskFunc,
+			jobOptions...,
+		)
+		if err != nil {
+			sf.app.Logger().Error("failed to update task", taskAttrs(task), slog.Any("error", err))
+			return
+		}
+		sf.setActiveJob(taskId, updatedJob)
+		sf.app.Logger().Info("updated existing task", taskAttrs(task))
+	} else {
+		// Create new job
+		newJob, err := sf.scheduler.NewJob(
+			jobDefinition,
+			taskFunc,
+			jobOptions...,
+		)
+		if err != nil {
+			sf.app.Logger().Error("failed to schedule new task", taskAttrs(task), slog.Any("error", err))
+			return
+		}
+		sf.setActiveJob(taskId, newJob)
+		sf.app.Logger().Info("scheduled new task", taskAttrs(task))
 	}
 }
 
@@ -638,29 +689,109 @@ func (sf *ScriptFlow) createLogFile(taskId string) (*os.File, error) {
 }
 
 func (sf *ScriptFlow) Reload() error {
+	// Serialize reload operations - only one reload at a time
+	sf.reloadMutex.Lock()
+	defer sf.reloadMutex.Unlock()
+
 	sf.app.Logger().Info("Reload() method started")
 
-	// Load new config from stored path
+	// Check if we have a config file to reload
 	if sf.configFilePath == "" {
 		sf.app.Logger().Info("No config file to reload - skipping")
 		return nil
 	}
 
+	// Load new config from stored path
 	newConfig, err := NewConfig(sf.configFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to load new config: %w", err)
 	}
 
-	// Update config reference
+	// Store old config for rollback
+	sf.configMutex.Lock()
+	oldConfig := sf.config
 	sf.config = newConfig
+	sf.configMutex.Unlock()
 
 	// Update database from new config
 	if err := sf.UpdateFromConfig(); err != nil {
-		return fmt.Errorf("failed to update from config: %w", err)
+		// Rollback on failure
+		sf.configMutex.Lock()
+		sf.config = oldConfig
+		sf.configMutex.Unlock()
+		return fmt.Errorf("failed to update from config, rolled back: %w", err)
 	}
 
+	// Reschedule active tasks with new config
 	sf.scheduleActiveTasks()
 
+	// Clean up any orphaned jobs immediately after reload
+	sf.reconcileJobs()
+
+	sf.app.Logger().Info("Configuration reloaded successfully")
 	return nil
 }
 
+// reconcileJobs compares activeJobs map with database records and removes orphaned jobs
+func (sf *ScriptFlow) reconcileJobs() {
+	// Get all active task IDs from database
+	tasks, err := sf.app.FindAllRecords(
+		CollectionTasks,
+		dbx.HashExp{"active": true},
+	)
+	if err != nil {
+		sf.app.Logger().Error("failed to find active tasks during reconciliation", slog.Any("error", err))
+		return
+	}
+
+	// Create set of active task IDs from database
+	activeTaskIds := make(map[string]bool)
+	for _, task := range tasks {
+		activeTaskIds[task.Id] = true
+	}
+
+	// Find and remove orphaned jobs (exist in activeJobs but not in database)
+	sf.jobsMutex.Lock()
+	defer sf.jobsMutex.Unlock()
+
+	orphanedCount := 0
+	for taskId, job := range sf.activeJobs {
+		if !activeTaskIds[taskId] {
+			// Task was deleted from database, remove the job
+			if err := sf.scheduler.RemoveJob(job.ID()); err != nil {
+				sf.app.Logger().Error("failed to remove orphaned job",
+					slog.String("taskId", taskId),
+					slog.Any("error", err))
+			} else {
+				delete(sf.activeJobs, taskId)
+				orphanedCount++
+				sf.app.Logger().Info("removed orphaned job", slog.String("taskId", taskId))
+			}
+		}
+	}
+
+	if orphanedCount > 0 {
+		sf.app.Logger().Info("job reconciliation completed", slog.Int("orphanedJobsRemoved", orphanedCount))
+	}
+}
+
+// Job management helper methods
+
+func (sf *ScriptFlow) getActiveJob(taskId string) (gocron.Job, bool) {
+	sf.jobsMutex.RLock()
+	defer sf.jobsMutex.RUnlock()
+	job, exists := sf.activeJobs[taskId]
+	return job, exists
+}
+
+func (sf *ScriptFlow) setActiveJob(taskId string, job gocron.Job) {
+	sf.jobsMutex.Lock()
+	defer sf.jobsMutex.Unlock()
+	sf.activeJobs[taskId] = job
+}
+
+func (sf *ScriptFlow) removeActiveJob(taskId string) {
+	sf.jobsMutex.Lock()
+	defer sf.jobsMutex.Unlock()
+	delete(sf.activeJobs, taskId)
+}
