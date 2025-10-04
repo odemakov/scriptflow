@@ -22,6 +22,7 @@ const useRuns = useRunStore();
 const useTask = useTaskStore();
 
 const lastRuns = computed(() => useRuns.getLastRuns[props.task.id]);
+const loading = ref(true);
 const lastRunStarted = computed(() => {
   if (lastRuns.value && lastRuns.value.length > 0) {
     return lastRuns.value[0].status === CRunStatus.started;
@@ -53,6 +54,7 @@ const toggleFold = () => {
 watch(
   () => props.task,
   async () => {
+    loading.value = true;
     runTaskButtonDisabled.value = lastRunStarted.value || !props.task.active;
     try {
       await useRuns.fetchLastRuns(props.task.id);
@@ -62,6 +64,8 @@ watch(
       //   (error as Error).message,
       //   'error',
       // )
+    } finally {
+      loading.value = false;
     }
   },
 );
@@ -115,7 +119,47 @@ const runTask = async () => {
 
 <template>
   <div class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]">
-    <div class="card-body">
+    <div v-if="loading" class="card-body">
+      <div class="skeleton h-8 w-3/4 mb-4"></div>
+      <div class="skeleton h-12 w-full mb-2"></div>
+      <table class="table table-xs">
+        <tbody>
+          <tr>
+            <td>Id</td>
+            <td><div class="skeleton h-4 w-20"></div></td>
+          </tr>
+          <tr>
+            <td>Project</td>
+            <td><div class="skeleton h-4 w-32"></div></td>
+          </tr>
+          <tr>
+            <td>Node</td>
+            <td><div class="skeleton h-4 w-24"></div></td>
+          </tr>
+          <tr>
+            <td>Schedule</td>
+            <td><div class="skeleton h-4 w-28"></div></td>
+          </tr>
+          <tr>
+            <td>Active</td>
+            <td><div class="skeleton h-4 w-16"></div></td>
+          </tr>
+          <tr>
+            <td>Prepend datetime</td>
+            <td><div class="skeleton h-4 w-16"></div></td>
+          </tr>
+          <tr>
+            <td>Created</td>
+            <td><div class="skeleton h-4 w-36"></div></td>
+          </tr>
+          <tr>
+            <td>Updated</td>
+            <td><div class="skeleton h-4 w-36"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div v-else class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="card-title">{{ props.task.name }}</h2>
         <div class="dropdown dropdown-end">

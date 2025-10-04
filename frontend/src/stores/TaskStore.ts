@@ -54,7 +54,12 @@ export const useTaskStore = defineStore("tasks", () => {
 
   async function toggleTaskActive(taskId: string) {
     // Find task in all possible arrays and toggle optimistically
-    const taskArrays = [tasks.value, tasksByNode.value, tasksByProject.value, [task.value]];
+    const taskArrays = [
+      tasks.value,
+      tasksByNode.value,
+      tasksByProject.value,
+      [task.value],
+    ];
     let foundTask: ITask | null = null;
 
     for (const taskArray of taskArrays) {

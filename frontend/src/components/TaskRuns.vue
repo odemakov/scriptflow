@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch, computed } from "vue";
+import { onBeforeUnmount, watch, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useRunStore } from "@/stores/RunStore";
 import { useToastStore } from "@/stores/ToastStore";
@@ -18,6 +18,7 @@ const router = useRouter();
 const useToasts = useToastStore();
 const useRuns = useRunStore();
 const lastRuns = computed(() => useRuns.getLastRuns[props.task.id]);
+const loading = ref(true);
 
 const gotoRun = (run: IRun) => {
   // Determine base name and params based on run status
@@ -47,11 +48,14 @@ const gotoRun = (run: IRun) => {
 watch(
   () => props.task,
   async () => {
+    loading.value = true;
     try {
       await useRuns.fetchLastRuns(props.task.id);
       useRuns.subscribe();
     } catch (error: unknown) {
       useToasts.addToast((error as Error).message, "error");
+    } finally {
+      loading.value = false;
     }
   },
 );
@@ -62,7 +66,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="overflow-x-auto">
+  <div v-if="loading" class="flex justify-center items-center py-8">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
+
+  <div v-else class="overflow-x-auto">
     <table class="table table-xs">
       <!-- Table head -->
       <thead>

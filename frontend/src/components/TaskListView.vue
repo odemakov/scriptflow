@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import { useToastStore } from "@/stores/ToastStore";
@@ -26,6 +26,8 @@ const router = useRouter();
 const useToasts = useToastStore();
 const useTasks = useTaskStore();
 const useRuns = useRunStore();
+
+const loading = ref(true);
 
 const tasks = computed(() => {
   return props.entityType === CEntityType.node
@@ -68,6 +70,8 @@ const fetchLastRunsAndSubscribe = async () => {
 onMounted(async () => {
   UpdateTitle(`${Capitalize(props.entityType)}: ${props.entityId}`);
 
+  loading.value = true;
+
   // unsubscribe from runs collection just in case
   useTasks.unsubscribe();
   useRuns.unsubscribe();
@@ -77,6 +81,8 @@ onMounted(async () => {
 
   // for each task fetch last run
   await fetchLastRunsAndSubscribe();
+
+  loading.value = false;
 });
 
 onBeforeUnmount(() => {
@@ -134,7 +140,11 @@ const crumbs = [{ label: props.entityId } as ICrumb];
   <Breadcrumbs :crumbs="crumbs" />
   <PageTitle :title="pageTitle" />
 
-  <div class="overflow-x-auto">
+  <div v-if="loading" class="flex justify-center items-center py-8">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
+
+  <div v-else class="overflow-x-auto">
     <table class="table table-xs">
       <!-- Table head -->
       <thead>
