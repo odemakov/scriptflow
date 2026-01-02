@@ -23,7 +23,7 @@ stop:
 # Run unit tests for frontend and backend
 test: test-backend test-frontend
 test-backend:
-	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golang:1.23-alpine go test ./...
+	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golang:1.25-alpine go test ./...
 test-frontend:
 	$(DOCKER) build --no-cache --target builder-frontend -t $(PROJECT_NAME):builder-frontend .
 	$(DOCKER) run --rm $(PROJECT_NAME):builder-frontend npm run test
