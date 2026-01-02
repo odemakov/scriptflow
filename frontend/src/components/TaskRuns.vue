@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch, computed, ref } from "vue";
+import { onBeforeUnmount, onMounted, watch, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useRunStore } from "@/stores/RunStore";
 import { useToastStore } from "@/stores/ToastStore";
@@ -51,14 +51,18 @@ watch(
     loading.value = true;
     try {
       await useRuns.fetchLastRuns(props.task.id);
-      useRuns.subscribe();
     } catch (error: unknown) {
       useToasts.addToast((error as Error).message, "error");
     } finally {
       loading.value = false;
     }
   },
+  { immediate: true },
 );
+
+onMounted(() => {
+  useRuns.subscribe();
+});
 
 onBeforeUnmount(() => {
   useRuns.unsubscribe();

@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
         <tr>
           <th class="whitespace-nowrap px-2 md:px-4">id</th>
           <th class="whitespace-nowrap px-2 md:px-4">name</th>
-          <th class="whitespace-nowrap px-2 md:px-4">consecutive failed count</th>
+          <th class="whitespace-nowrap px-2 md:px-4">failures</th>
           <th class="whitespace-nowrap px-2 md:px-4">updated</th>
         </tr>
       </thead>

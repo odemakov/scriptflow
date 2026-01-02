@@ -42,6 +42,7 @@ watch(
       loading.value = false;
     }
   },
+  { immediate: true },
 );
 
 const toggleSubscriptionActive = async (subscriptionId: string) => {
