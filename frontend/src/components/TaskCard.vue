@@ -118,7 +118,7 @@ const runTask = async () => {
     useToasts.addToast((error as Error).message, "error");
   }
 
-  // wait 2 seconds and set oldSchedule back
+  // Wait 1500ms: after max first trigger (1.1s) and before min second trigger (1.8s)
   setTimeout(async () => {
     try {
       await useTask.updateTask(props.task.id, {
@@ -128,7 +128,7 @@ const runTask = async () => {
     } catch (error: unknown) {
       useToasts.addToast((error as Error).message, "error");
     }
-  }, 2000);
+  }, 1500);
 };
 </script>
 
