@@ -15,6 +15,7 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
     const records = await pb
       .collection(CCollectionName.subscriptions)
       .getList<ISubscription>(1, 100, {
+        requestKey: taskId,
         expand: "channel",
         sort: "-active,-created",
         filter: pb.filter("task={:taskId}", { taskId: taskId }),

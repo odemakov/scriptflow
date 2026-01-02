@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, ref } from "vue";
+import { computed, watch, ref, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 
 import Command from "./Command.vue";
@@ -11,6 +11,7 @@ import config from "@/config";
 import { useRunStore } from "@/stores/RunStore";
 import { useTaskStore } from "@/stores/TaskStore";
 import { useToastStore } from "@/stores/ToastStore";
+import { isAutoCancelError } from "@/lib/helpers";
 
 const props = defineProps<{
   task: ITask;
@@ -51,24 +52,38 @@ const toggleFold = () => {
   closeDropdown();
 };
 
+let previousTaskId: string | null = null;
+
 watch(
   () => props.task,
   async () => {
     loading.value = true;
     runTaskButtonDisabled.value = lastRunStarted.value || !props.task.active;
+
+    // Unsubscribe from previous task if changed
+    if (previousTaskId && previousTaskId !== props.task.id) {
+      useRuns.unsubscribe({ taskId: previousTaskId });
+    }
+
     try {
       await useRuns.fetchLastRuns(props.task.id);
-      useRuns.subscribe();
+      await useRuns.subscribe({ taskId: props.task.id });
+      previousTaskId = props.task.id;
     } catch (error: unknown) {
-      // useToasts.addToast(
-      //   (error as Error).message,
-      //   'error',
-      // )
+      if (!isAutoCancelError(error)) {
+        useToasts.addToast((error as Error).message, "error");
+      }
     } finally {
       loading.value = false;
     }
   },
 );
+
+onBeforeUnmount(() => {
+  if (previousTaskId) {
+    useRuns.unsubscribe({ taskId: previousTaskId });
+  }
+});
 
 const gotoEntity = (entityType: string, entityId?: string) => {
   if (!entityId) return;

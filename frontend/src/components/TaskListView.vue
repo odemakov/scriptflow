@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { useToastStore } from "@/stores/ToastStore";
 import { useTaskStore } from "@/stores/TaskStore";
 import { useRunStore } from "@/stores/RunStore";
+import { isAutoCancelError } from "@/lib/helpers";
 
 import IdentifierUrl from "@/components/IdentifierUrl.vue";
 import Command from "@/components/Command.vue";
@@ -47,12 +48,15 @@ const fetchTasks = async () => {
   try {
     if (props.entityType === CEntityType.node) {
       await useTasks.fetchTasksByNode(props.entityId);
+      await useTasks.subscribe({ nodeId: props.entityId });
     } else {
       await useTasks.fetchTasksByProject(props.entityId);
+      await useTasks.subscribe({ projectId: props.entityId });
     }
-    useTasks.subscribe();
   } catch (error: unknown) {
-    useToasts.addToast((error as Error).message, "error");
+    if (!isAutoCancelError(error)) {
+      useToasts.addToast((error as Error).message, "error");
+    }
   }
 };
 
@@ -60,10 +64,12 @@ const fetchLastRunsAndSubscribe = async () => {
   try {
     for (const task of tasks.value) {
       await useRuns.fetchLastRuns(task.id, 1, false);
+      await useRuns.subscribe({ taskId: task.id });
     }
-    useRuns.subscribe();
   } catch (error: unknown) {
-    useToasts.addToast((error as Error).message, "error");
+    if (!isAutoCancelError(error)) {
+      useToasts.addToast((error as Error).message, "error");
+    }
   }
 };
 
@@ -72,9 +78,17 @@ onMounted(async () => {
 
   loading.value = true;
 
-  // unsubscribe from runs collection just in case
-  useTasks.unsubscribe();
-  useRuns.unsubscribe();
+  // unsubscribe just in case
+  if (props.entityType === CEntityType.node) {
+    useTasks.unsubscribe({ nodeId: props.entityId });
+  } else {
+    useTasks.unsubscribe({ projectId: props.entityId });
+  }
+
+  // Unsubscribe from all task runs
+  for (const task of tasks.value) {
+    useRuns.unsubscribe({ taskId: task.id });
+  }
 
   // fetch tasks
   await fetchTasks();
@@ -86,8 +100,16 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  useTasks.unsubscribe();
-  useRuns.unsubscribe();
+  if (props.entityType === CEntityType.node) {
+    useTasks.unsubscribe({ nodeId: props.entityId });
+  } else {
+    useTasks.unsubscribe({ projectId: props.entityId });
+  }
+
+  // Unsubscribe from all task runs
+  for (const task of tasks.value) {
+    useRuns.unsubscribe({ taskId: task.id });
+  }
 });
 
 const gotoTask = (taskId: string) => {

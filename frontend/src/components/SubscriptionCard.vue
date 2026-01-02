@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import { useSubscriptionStore } from "@/stores/SubscriptionStore";
 import { useToastStore } from "@/stores/ToastStore";
-import { RunStatusClass } from "@/lib/helpers";
+import { RunStatusClass, isAutoCancelError } from "@/lib/helpers";
 import config from "@/config";
 import MenuIcon from "./icons/MenuIcon.vue";
 
@@ -35,9 +35,15 @@ const closeDropdown = () => {
 watch(
   () => props.task.id,
   async (newVal: string) => {
+    if (!newVal) return;
+
     loading.value = true;
     try {
       await useSubscription.fetchSubscriptionsForTask(newVal);
+    } catch (error: unknown) {
+      if (!isAutoCancelError(error)) {
+        useToasts.addToast((error as Error).message, "error");
+      }
     } finally {
       loading.value = false;
     }

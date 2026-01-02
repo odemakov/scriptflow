@@ -9,6 +9,8 @@ export const useRunStore = defineStore("runs", () => {
   // lastRuns is a dictionary of 100 last runs for each task with taskId as key
   const lastRuns = ref({} as Record<string, IRun[]>);
   const run = ref({} as IRun);
+  // Track active subscriptions by taskId
+  const activeSubscriptions = new Map<string, () => void>();
 
   // getters
   const getLastRuns = computed(() => lastRuns.value);
@@ -34,31 +36,62 @@ export const useRunStore = defineStore("runs", () => {
     });
     run.value = record;
   }
-  function subscribe() {
-    pb.collection(CCollectionName.runs).subscribe("*", (data: RecordSubscription) => {
-      if (
-        data.record?.collectionName == CCollectionName.runs &&
-        (data.action == "create" || data.action == "update")
-      ) {
-        const run = {
-          id: data.record.id,
-          created: data.record.created,
-          updated: data.record.updated,
-          status: data.record.status,
-          command: data.record.command,
-          connection_error: data.record.connection_error,
-          exit_code: data.record.exit_code,
-        } as IRun;
-        if (data.action == "update") {
-          _updateStoreRun(data.record.task, run);
-        } else if (data.action == "create") {
-          _addStoreRun(data.record.task, run);
+  async function subscribe(options?: { taskId?: string }) {
+    const { taskId } = options || {};
+
+    // Build subscription key
+    const key = taskId || "all";
+
+    // Prevent duplicate subscriptions
+    if (activeSubscriptions.has(key)) {
+      return;
+    }
+
+    // Reserve this key immediately to prevent race conditions
+    activeSubscriptions.set(key, () => {});
+
+    // Build filter
+    let filter = "";
+    if (taskId) {
+      filter = pb.filter("task.id={:taskId}", { taskId });
+    }
+
+    const unsubscribeFn = await pb
+      .collection(CCollectionName.runs)
+      .subscribe("*", (data: RecordSubscription) => {
+        if (
+          data.record?.collectionName == CCollectionName.runs &&
+          (data.action == "create" || data.action == "update")
+        ) {
+          const run = {
+            id: data.record.id,
+            created: data.record.created,
+            updated: data.record.updated,
+            status: data.record.status,
+            command: data.record.command,
+            connection_error: data.record.connection_error,
+            exit_code: data.record.exit_code,
+          } as IRun;
+          if (data.action == "update") {
+            _updateStoreRun(data.record.task, run);
+          } else if (data.action == "create") {
+            _addStoreRun(data.record.task, run);
+          }
         }
-      }
-    });
+      }, filter ? { filter } : undefined);
+
+    // Replace placeholder with actual unsubscribe function
+    activeSubscriptions.set(key, unsubscribeFn);
   }
-  function unsubscribe() {
-    pb.collection(CCollectionName.runs).unsubscribe();
+
+  function unsubscribe(options?: { taskId?: string }) {
+    const { taskId } = options || {};
+    const key = taskId || "all";
+    const unsubscribeFn = activeSubscriptions.get(key);
+    if (unsubscribeFn) {
+      unsubscribeFn();
+      activeSubscriptions.delete(key);
+    }
   }
 
   // private methods
@@ -78,8 +111,12 @@ export const useRunStore = defineStore("runs", () => {
   }
   function _addStoreRun(taskId: string, newRun: IRun) {
     if (taskId in lastRuns.value) {
-      lastRuns.value[taskId].unshift(newRun);
-      lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
+      // Check if run already exists to prevent duplicates
+      const exists = lastRuns.value[taskId].some((run) => run.id === newRun.id);
+      if (!exists) {
+        lastRuns.value[taskId].unshift(newRun);
+        lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
+      }
     }
   }
   function getConsecutiveFailureCount(taskId: string) {

@@ -108,16 +108,20 @@ onMounted(async () => {
       countLoaded: false,
     }));
 
-    // Subscribe to run updates
-    useRuns.subscribe();
+    // Subscribe to run updates for each task
+    for (const task of tasks.value) {
+      await useRuns.subscribe({ taskId: task.id });
+    }
   } finally {
     isLoading.value = false;
   }
 });
 
 onBeforeUnmount(() => {
-  // Clean up subscription
-  useRuns.unsubscribe();
+  // Clean up subscriptions for all tasks
+  for (const task of tasks.value) {
+    useRuns.unsubscribe({ taskId: task.id });
+  }
 });
 </script>
 

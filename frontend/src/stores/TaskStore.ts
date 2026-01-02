@@ -10,6 +10,8 @@ export const useTaskStore = defineStore("tasks", () => {
   const tasks = ref([] as ITask[]);
   const tasksByNode = ref([] as ITask[]);
   const tasksByProject = ref([] as ITask[]);
+  // Track active subscriptions by key (e.g., "project:abc123" or "node:xyz789")
+  const activeSubscriptions = new Map<string, () => void>();
 
   // getters
   const getTask = computed(() => task.value);
@@ -85,38 +87,85 @@ export const useTaskStore = defineStore("tasks", () => {
       }
     }
   }
-  function subscribe() {
-    pb.collection(CCollectionName.tasks).subscribe("*", (data: RecordSubscription) => {
-      if (
-        data.record?.collectionName == CCollectionName.tasks &&
-        (data.action == "create" || data.action == "update")
-      ) {
-        _updateStoredTask(data.record.id, {
-          id: data.record.id,
-          updated: data.record.updated,
-          name: data.record.name,
-          command: data.record.command,
-          schedule: data.record.schedule,
-          node: data.record.node,
-          project: data.record.project,
-          active: data.record.active,
-          prepend_datetime: data.record.prepend_datetime,
-        });
-      }
-    });
+  async function subscribe(options?: { projectId?: string; nodeId?: string }) {
+    const { projectId, nodeId } = options || {};
+
+    // Build subscription key
+    const key = projectId ? `project:${projectId}` : nodeId ? `node:${nodeId}` : "all";
+
+    // Prevent duplicate subscriptions
+    if (activeSubscriptions.has(key)) {
+      return;
+    }
+
+    // Reserve this key immediately to prevent race conditions
+    activeSubscriptions.set(key, () => {});
+
+    // Build filter
+    let filter = "";
+    if (projectId) {
+      filter = pb.filter("project.id={:projectId}", { projectId });
+    } else if (nodeId) {
+      filter = pb.filter("node.id={:nodeId}", { nodeId });
+    }
+
+    const unsubscribeFn = await pb
+      .collection(CCollectionName.tasks)
+      .subscribe("*", (data: RecordSubscription) => {
+        if (
+          data.record?.collectionName == CCollectionName.tasks &&
+          (data.action == "create" || data.action == "update")
+        ) {
+          _updateStoredTask(data.record.id, {
+            id: data.record.id,
+            updated: data.record.updated,
+            name: data.record.name,
+            command: data.record.command,
+            schedule: data.record.schedule,
+            node: data.record.node,
+            project: data.record.project,
+            active: data.record.active,
+            prepend_datetime: data.record.prepend_datetime,
+          });
+        }
+      }, filter ? { filter } : undefined);
+
+    // Replace placeholder with actual unsubscribe function
+    activeSubscriptions.set(key, unsubscribeFn);
   }
-  function unsubscribe() {
-    pb.collection(CCollectionName.tasks).unsubscribe();
+
+  function unsubscribe(options?: { projectId?: string; nodeId?: string }) {
+    const { projectId, nodeId } = options || {};
+    const key = projectId ? `project:${projectId}` : nodeId ? `node:${nodeId}` : "all";
+    const unsubscribeFn = activeSubscriptions.get(key);
+    if (unsubscribeFn) {
+      unsubscribeFn();
+      activeSubscriptions.delete(key);
+    }
   }
   // private functions
   function _updateStoredTask(taskId: string, updatedData: Object) {
-    // update state task
-    const taskIndex: number = tasks.value.findIndex(
-      (task: ITask) => task.id === taskId,
-    );
-    if (taskIndex !== -1) {
-      tasks.value[taskIndex] = {
-        ...tasks.value[taskIndex],
+    // Update all task arrays
+    const taskArrays = [
+      tasks.value,
+      tasksByNode.value,
+      tasksByProject.value,
+    ];
+
+    for (const taskArray of taskArrays) {
+      const taskIndex = taskArray.findIndex((t: ITask) => t.id === taskId);
+      if (taskIndex !== -1) {
+        taskArray[taskIndex] = {
+          ...taskArray[taskIndex],
+          ...updatedData,
+        };
+      }
+    }
+
+    // Update single task if it matches
+    if (task.value.id === taskId) {
+      task.value = {
+        ...task.value,
         ...updatedData,
       };
     }

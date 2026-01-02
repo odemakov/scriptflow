@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, watch, computed, ref } from "vue";
+import { onBeforeUnmount, watch, computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useRunStore } from "@/stores/RunStore";
 import { useToastStore } from "@/stores/ToastStore";
+import { isAutoCancelError } from "@/lib/helpers";
 import IdentifierUrl from "./IdentifierUrl.vue";
 import RunStatus from "./RunStatus.vue";
 import RunTimeAgo from "./RunTimeAgo.vue";
@@ -45,14 +46,28 @@ const gotoRun = (run: IRun) => {
   router.push({ name: routeName, params });
 };
 
+let previousTaskId: string | null = null;
+
 watch(
   () => props.task,
   async () => {
+    if (!props.task?.id) return;
+
     loading.value = true;
+
+    // Unsubscribe from previous task if changed
+    if (previousTaskId && previousTaskId !== props.task.id) {
+      useRuns.unsubscribe({ taskId: previousTaskId });
+    }
+
     try {
       await useRuns.fetchLastRuns(props.task.id);
+      await useRuns.subscribe({ taskId: props.task.id });
+      previousTaskId = props.task.id;
     } catch (error: unknown) {
-      useToasts.addToast((error as Error).message, "error");
+      if (!isAutoCancelError(error)) {
+        useToasts.addToast((error as Error).message, "error");
+      }
     } finally {
       loading.value = false;
     }
@@ -60,12 +75,10 @@ watch(
   { immediate: true },
 );
 
-onMounted(() => {
-  useRuns.subscribe();
-});
-
 onBeforeUnmount(() => {
-  useRuns.unsubscribe();
+  if (previousTaskId) {
+    useRuns.unsubscribe({ taskId: previousTaskId });
+  }
 });
 </script>
 

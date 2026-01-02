@@ -1,3 +1,5 @@
+import { ClientResponseError } from "pocketbase";
+
 const Capitalize = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
@@ -123,4 +125,8 @@ const UpdateTitle = (title?: string): void => {
   document.title = title ? title : "ScriptFlow";
 };
 
-export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle };
+const isAutoCancelError = (error: unknown): boolean => {
+  return error instanceof ClientResponseError && (error.isAbort || error.status === 0);
+};
+
+export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle, isAutoCancelError };
