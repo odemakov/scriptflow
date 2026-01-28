@@ -98,6 +98,7 @@ const toggleTaskActive = async () => {
   closeDropdown();
   try {
     await useTask.toggleTaskActive(props.task.id);
+    runTaskButtonDisabled.value = lastRunStarted.value || !props.task.active;
   } catch (error: unknown) {
     useToasts.addToast((error as Error).message, "error");
   }
