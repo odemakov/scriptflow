@@ -8,6 +8,7 @@ import IdentifierUrl from "./IdentifierUrl.vue";
 import TrueFalse from "./TrueFalse.vue";
 import MenuIcon from "./icons/MenuIcon.vue";
 import config from "@/config";
+import { useAuthStore } from "@/stores/AuthStore";
 import { useRunStore } from "@/stores/RunStore";
 import { useTaskStore } from "@/stores/TaskStore";
 import { useToastStore } from "@/stores/ToastStore";
@@ -18,6 +19,7 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
+const auth = useAuthStore();
 const useToasts = useToastStore();
 const useRuns = useRunStore();
 const useTask = useTaskStore();
@@ -131,6 +133,32 @@ const runTask = async () => {
     }
   }, 1500);
 };
+
+const killTask = async () => {
+  closeDropdown();
+  if (!lastRuns.value || lastRuns.value.length === 0) return;
+
+  const runId = lastRuns.value[0].id;
+  const killUrl = `${config.baseUrl}api/scriptflow/run/${runId}/kill`;
+
+  try {
+    const response = await fetch(killUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `${auth.token}`,
+      },
+    });
+
+    const data = await response.json();
+    if (data.status === "killed") {
+      useToasts.addToast("Task killed", "success");
+    } else {
+      throw new Error(data.message || "Failed to kill task");
+    }
+  } catch (error: unknown) {
+    useToasts.addToast((error as Error).message, "error");
+  }
+};
 </script>
 
 <template>
@@ -199,10 +227,7 @@ const runTask = async () => {
               >
                 Run once
               </a>
-              <span
-                v-else
-                class="text-base-300 px-3 py-2 block disabled-menu-item"
-              >
+              <span v-else class="text-base-300 px-3 py-2 block disabled-menu-item">
                 Run once
               </span>
             </li>
@@ -211,6 +236,18 @@ const runTask = async () => {
                 <span v-if="isFolded">Show details</span>
                 <span v-else>Hide details</span>
               </a>
+            </li>
+            <li>
+              <a
+                v-if="lastRunStarted"
+                class="text-error hover:bg-error hover:text-error-content"
+                @click="killTask()"
+              >
+                Kill current run
+              </a>
+              <span v-else class="text-base-300 px-3 py-2 block disabled-menu-item">
+                Kill current run
+              </span>
             </li>
           </ul>
         </div>

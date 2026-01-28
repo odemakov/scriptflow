@@ -115,6 +115,7 @@ const RunStatusClass = (status: string): string => {
     case CRunStatus.internal_error:
       return "badge badge-error bg-opacity-60";
     case CRunStatus.interrupted:
+    case CRunStatus.killed:
       return "badge badge-warning bg-opacity-60";
     default:
       return "";

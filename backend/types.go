@@ -45,6 +45,7 @@ const (
 	RunStatusCompleted     = "completed"
 	RunStatusInterrupted   = "interrupted"
 	RunStatusInternalError = "internal_error"
+	RunStatusKilled        = "killed"
 )
 
 // ScriptFlowLocks encapsulates the locks for different tasks
@@ -66,6 +67,8 @@ type ScriptFlow struct {
 	cancelFunc     context.CancelFunc
 	activeJobs     map[string]gocron.Job
 	jobsMutex      sync.RWMutex
+	activeRuns     map[string]context.CancelFunc
+	runsMutex      sync.RWMutex
 }
 
 // type Node struct {

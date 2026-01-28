@@ -167,6 +167,16 @@ func (sf *ScriptFlow) ApiScriptFlowStats(e *core.RequestEvent) error {
 	return e.JSON(http.StatusOK, map[string]int{"WebSocketsCount": count})
 }
 
+func (sf *ScriptFlow) ApiKillRun(e *core.RequestEvent) error {
+	runId := e.Request.PathValue("runId")
+
+	if err := sf.KillRun(runId); err != nil {
+		return e.NotFoundError(err.Error(), nil)
+	}
+
+	return e.JSON(http.StatusOK, map[string]string{"status": "killed", "runId": runId})
+}
+
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 	//delimiterRegex := regexp.MustCompile(`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}\] \[scriptflow\] run ([a-z0-9]{15})`)
 	delimiterRegex := regexp.MustCompile(`^\[.*\] \[scriptflow\] run (\S+)$`)

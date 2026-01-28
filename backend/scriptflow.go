@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -48,6 +49,7 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath st
 		ctx:            ctx,
 		cancelFunc:     cancel,
 		activeJobs:     make(map[string]gocron.Job),
+		activeRuns:     make(map[string]context.CancelFunc),
 	}, nil
 }
 
@@ -260,6 +262,11 @@ func (sf *ScriptFlow) runTask(taskId string) {
 		return
 	}
 
+	// Create cancellable context for this run
+	runCtx, runCancel := context.WithCancel(sf.ctx)
+	sf.registerActiveRun(run.Id, runCancel)
+	defer sf.unregisterActiveRun(run.Id)
+
 	// Create and open log file
 	logFile, err := sf.createLogFile(task.Id)
 	if err != nil {
@@ -270,23 +277,29 @@ func (sf *ScriptFlow) runTask(taskId string) {
 
 	// Execute command and process output
 	sf.app.Logger().Info("execute task", taskAttrs(task), nodeAttrs(node))
-	exitCode, err := sf.executeCommand(nodeSSHConfig(node), task, run, logFile)
+	exitCode, err := sf.executeCommand(runCtx, nodeSSHConfig(node), task, run, logFile)
 	if err != nil {
-		switch e := err.(type) {
-		case *ScriptFlowError:
-			sf.app.Logger().Error("ScriptFlow error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
-			run.Set("status", RunStatusInternalError)
-		case *sshrun.SSHError:
-			sf.app.Logger().Error("SSH error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
-			run.Set("connection_error", e.Msg)
-			run.Set("status", RunStatusInterrupted)
-		case *sshrun.CommandError:
-			sf.app.Logger().Error("command error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
-			run.Set("status", RunStatusError)
-			run.Set("exit_code", exitCode)
-		default:
-			sf.app.Logger().Error("unhandled error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
-			run.Set("status", RunStatusError)
+		// Check if context was cancelled (killed) first
+		if errors.Is(err, context.Canceled) || runCtx.Err() == context.Canceled {
+			sf.app.Logger().Info("task killed", nodeAttrs(node), taskAttrs(task))
+			run.Set("status", RunStatusKilled)
+		} else {
+			switch e := err.(type) {
+			case *ScriptFlowError:
+				sf.app.Logger().Error("ScriptFlow error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+				run.Set("status", RunStatusInternalError)
+			case *sshrun.SSHError:
+				sf.app.Logger().Error("SSH error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+				run.Set("connection_error", e.Msg)
+				run.Set("status", RunStatusInterrupted)
+			case *sshrun.CommandError:
+				sf.app.Logger().Error("command error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+				run.Set("status", RunStatusError)
+				run.Set("exit_code", exitCode)
+			default:
+				sf.app.Logger().Error("unhandled error", nodeAttrs(node), taskAttrs(task), slog.Any("error", err))
+				run.Set("status", RunStatusError)
+			}
 		}
 		if err := sf.app.Save(run); err != nil {
 			sf.app.Logger().Error("failed to save run record", slog.Any("error", err))
@@ -346,7 +359,7 @@ func (sf *ScriptFlow) createRunRecord(node *core.Record, task *core.Record) (*co
 	return run, nil
 }
 
-func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record, run *core.Record, logFile *os.File) (int, error) {
+func (sf *ScriptFlow) executeCommand(ctx context.Context, sshCfg *sshrun.SSHConfig, task *core.Record, run *core.Record, logFile *os.File) (int, error) {
 	// add run mark to the log file
 	runMark := fmt.Sprintf(
 		LogSeparator,
@@ -357,7 +370,8 @@ func (sf *ScriptFlow) executeCommand(sshCfg *sshrun.SSHConfig, task *core.Record
 		return 0, &ScriptFlowError{"failed to write to log file"}
 	}
 	prependDatetime := task.GetBool("prepend_datetime")
-	return sf.sshPool.RunCombined(
+	return sf.sshPool.RunCombinedContext(
+		ctx,
 		sshCfg,
 		task.GetString("command"),
 		func(out string) {
@@ -953,4 +967,33 @@ func (sf *ScriptFlow) removeActiveJob(taskId string) {
 	sf.jobsMutex.Lock()
 	defer sf.jobsMutex.Unlock()
 	delete(sf.activeJobs, taskId)
+}
+
+// Active runs management
+
+func (sf *ScriptFlow) registerActiveRun(runId string, cancel context.CancelFunc) {
+	sf.runsMutex.Lock()
+	defer sf.runsMutex.Unlock()
+	sf.activeRuns[runId] = cancel
+}
+
+func (sf *ScriptFlow) unregisterActiveRun(runId string) {
+	sf.runsMutex.Lock()
+	defer sf.runsMutex.Unlock()
+	delete(sf.activeRuns, runId)
+}
+
+// KillRun cancels a running task by its run ID
+func (sf *ScriptFlow) KillRun(runId string) error {
+	sf.runsMutex.RLock()
+	cancel, exists := sf.activeRuns[runId]
+	sf.runsMutex.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("run %s is not active", runId)
+	}
+
+	sf.app.Logger().Info("killing run", slog.String("runId", runId))
+	cancel()
+	return nil
 }

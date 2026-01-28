@@ -15,6 +15,7 @@ export const CRunStatus = {
   interrupted: "interrupted",
   error: "error",
   internal_error: "internal_error",
+  killed: "killed",
 } as const;
 
 export const CNodeStatus = {
