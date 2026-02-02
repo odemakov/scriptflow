@@ -239,9 +239,10 @@ func (sf *ScriptFlow) setupScheduler() {
 		if e.Record.Collection().Name == CollectionTasks {
 			go sf.ScheduleTask(e.Record)
 		}
-		// init notification for run
+		// Handle run status changes
 		if e.Record.Collection().Name == CollectionRuns {
 			go sf.ProcessRunNotification(e.Record)
+			go sf.UpdateTaskFailureCount(e.Record)
 		}
 		// Close node connection when node is updated, so that checkNodeStatus can attempt to reconnect with new params
 		if e.Record.Collection().Name == CollectionNodes {

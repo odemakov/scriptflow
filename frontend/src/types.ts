@@ -136,6 +136,7 @@ export interface ITask {
   project: string;
   node: string;
   prepend_datetime?: boolean;
+  consecutive_failure_count?: number;
   expand: {
     project?: IProject;
     node?: INode;

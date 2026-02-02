@@ -547,3 +547,52 @@ func (sf *ScriptFlow) KillRun(runId string) error {
 	cancel()
 	return nil
 }
+
+// UpdateTaskFailureCount updates the consecutive_failure_count field on a task
+// when a run completes. Increments on error, resets to 0 on success.
+func (sf *ScriptFlow) UpdateTaskFailureCount(run *core.Record) {
+	status := run.GetString("status")
+
+	// Only process terminal statuses (not "started")
+	if status == RunStatusStarted {
+		return
+	}
+
+	taskId := run.GetString("task")
+	if taskId == "" {
+		return
+	}
+
+	task, err := sf.app.FindRecordById(CollectionTasks, taskId)
+	if err != nil {
+		sf.app.Logger().Error("failed to find task for failure count update",
+			slog.String("taskId", taskId),
+			slog.Any("error", err))
+		return
+	}
+
+	currentCount := task.GetInt("consecutive_failure_count")
+	var newCount int
+
+	switch status {
+	case RunStatusCompleted:
+		// Success - reset counter
+		newCount = 0
+	case RunStatusError, RunStatusInternalError:
+		// Failure - increment counter
+		newCount = currentCount + 1
+	default:
+		// Other statuses (interrupted, killed) - don't change counter
+		return
+	}
+
+	// Only update if changed
+	if newCount != currentCount {
+		task.Set("consecutive_failure_count", newCount)
+		if err := sf.app.Save(task); err != nil {
+			sf.app.Logger().Error("failed to update task failure count",
+				slog.String("taskId", taskId),
+				slog.Any("error", err))
+		}
+	}
+}
