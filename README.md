@@ -64,12 +64,16 @@ Enable and restart service
 
 # Cron scheduling
 
-The `Task.schedule` field accepts two types of values:
+The `Task.schedule` field accepts the following formats:
 
 1. **Cron Expression**: A standard cron expression like `0 * * * *`, which means the task will run at the start of every hour.
-2. **Duration Expression**: A duration string prefixed with `@every`, such as `@every 1h30m`, which means the task will run every 1 hour and 30 minutes. The duration is parsed using the `time.ParseDuration` function from the Go programming language.
+2. **Duration Expression**: A duration string prefixed with `@every`, such as `@every 1h30m`, which means the task will run every 1 hour and 30 minutes. Duration tasks have ±10% jitter to spread load. For more details on duration format, see [time.ParseDuration documentation](https://pkg.go.dev/time#ParseDuration).
+3. **Jenkins-style H (Hash)**: Use `H` to distribute tasks across a time range:
+   - `H * * * *` - run hourly at a consistent minute (0-59)
+   - `H(0-30) * * * *` - run hourly between minute 0-30
+   - `H H(0-6) * * *` - run daily between midnight and 6 AM
 
-For more details on how to format the duration string, you can refer to the [time.ParseDuration documentation](https://pkg.go.dev/time#ParseDuration).
+   The `H` value is deterministic per task ID - the same task always runs at the same time, but different tasks get distributed across the range. This prevents the "thundering herd" problem when many tasks share the same schedule.
 
 # Development
 

@@ -77,6 +77,198 @@ func TestDurationMinMax(t *testing.T) {
 	}
 }
 
+func TestResolveHashedSchedule(t *testing.T) {
+	tests := []struct {
+		name          string
+		schedule      string
+		seed          string
+		expectError   bool
+		errorContains string
+		validate      func(t *testing.T, result string)
+	}{
+		{
+			name:     "no H - unchanged",
+			schedule: "10 0 * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				assert.Equal(t, "10 0 * * *", result)
+			},
+		},
+		{
+			name:     "H in minute field",
+			schedule: "H 0 * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				// Should resolve to "N 0 * * *" where N is 0-59
+				var minute int
+				_, err := fmt.Sscanf(result, "%d 0 * * *", &minute)
+				assert.NoError(t, err)
+				assert.GreaterOrEqual(t, minute, 0)
+				assert.LessOrEqual(t, minute, 59)
+			},
+		},
+		{
+			name:     "H(10-30) in minute field",
+			schedule: "H(10-30) 0 * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				var minute int
+				_, err := fmt.Sscanf(result, "%d 0 * * *", &minute)
+				assert.NoError(t, err)
+				assert.GreaterOrEqual(t, minute, 10)
+				assert.LessOrEqual(t, minute, 30)
+			},
+		},
+		{
+			name:     "H in hour field",
+			schedule: "0 H * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				var hour int
+				_, err := fmt.Sscanf(result, "0 %d * * *", &hour)
+				assert.NoError(t, err)
+				assert.GreaterOrEqual(t, hour, 0)
+				assert.LessOrEqual(t, hour, 23)
+			},
+		},
+		{
+			name:     "H(0-6) in hour field",
+			schedule: "0 H(0-6) * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				var hour int
+				_, err := fmt.Sscanf(result, "0 %d * * *", &hour)
+				assert.NoError(t, err)
+				assert.GreaterOrEqual(t, hour, 0)
+				assert.LessOrEqual(t, hour, 6)
+			},
+		},
+		{
+			name:     "multiple H fields",
+			schedule: "H H * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				var minute, hour int
+				_, err := fmt.Sscanf(result, "%d %d * * *", &minute, &hour)
+				assert.NoError(t, err)
+				assert.GreaterOrEqual(t, minute, 0)
+				assert.LessOrEqual(t, minute, 59)
+				assert.GreaterOrEqual(t, hour, 0)
+				assert.LessOrEqual(t, hour, 23)
+			},
+		},
+		{
+			name:     "deterministic - same seed same result",
+			schedule: "H 0 * * *",
+			seed:     "consistent-task",
+			validate: func(t *testing.T, result string) {
+				// Run again with same seed, should get same result
+				result2, _ := resolveHashedSchedule("H 0 * * *", "consistent-task")
+				assert.Equal(t, result, result2)
+			},
+		},
+		{
+			name:     "different seeds produce distribution",
+			schedule: "H 0 * * *",
+			seed:     "task-0",
+			validate: func(t *testing.T, result string) {
+				// Verify that different seeds produce at least 2 distinct values
+				seen := make(map[string]bool)
+				seen[result] = true
+				for i := 1; i <= 10; i++ {
+					r, _ := resolveHashedSchedule("H 0 * * *", fmt.Sprintf("task-%d", i))
+					seen[r] = true
+				}
+				assert.GreaterOrEqual(t, len(seen), 2, "expected different seeds to produce distribution")
+			},
+		},
+		{
+			name:     "non-5-field cron unchanged",
+			schedule: "*/5 * * * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				assert.Equal(t, "*/5 * * * * *", result)
+			},
+		},
+		{
+			name:     "H(0-0) single value range",
+			schedule: "H(0-0) 0 * * *",
+			seed:     "task1",
+			validate: func(t *testing.T, result string) {
+				// Range of 1 (0-0) should always return 0
+				assert.Equal(t, "0 0 * * *", result)
+			},
+		},
+		// Error cases - Jenkins-style validation
+		{
+			name:          "error: min > max in minute field",
+			schedule:      "H(30-10) 0 * * *",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "min (30) > max (10)",
+		},
+		{
+			name:          "error: min > max in hour field (wraparound)",
+			schedule:      "0 H(22-6) * * *",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "min (22) > max (6)",
+		},
+		{
+			name:          "error: minute > 59",
+			schedule:      "H(50-70) 0 * * *",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "range out of bounds in minute field",
+		},
+		{
+			name:          "error: hour > 23",
+			schedule:      "0 H(20-30) * * *",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "range out of bounds in hour field",
+		},
+		{
+			name:          "error: day of month > 31",
+			schedule:      "0 0 H(1-32) * *",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "range out of bounds in day of month field",
+		},
+		{
+			name:          "error: month > 12",
+			schedule:      "0 0 1 H(1-13) *",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "range out of bounds in month field",
+		},
+		{
+			name:          "error: day of week > 6",
+			schedule:      "0 0 * * H(0-7)",
+			seed:          "task1",
+			expectError:   true,
+			errorContains: "range out of bounds in day of week field",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolveHashedSchedule(tt.schedule, tt.seed)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+				return
+			}
+			assert.NoError(t, err)
+			if tt.validate != nil {
+				tt.validate(t, result)
+			}
+		})
+	}
+}
+
 // Mock job for testing
 type mockJob struct {
 	id   uuid.UUID
@@ -361,7 +553,7 @@ func TestReconcileScheduler(t *testing.T) {
 			sf.jobsMutex.RUnlock()
 
 			// Verify orphaned scheduler jobs
-			orphanedIds := make([]uuid.UUID, 0)
+			orphanedIds := make([]uuid.UUID, 0, len(orphanedSchedulerJobs))
 			for _, job := range orphanedSchedulerJobs {
 				orphanedIds = append(orphanedIds, job.ID())
 			}

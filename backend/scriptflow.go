@@ -201,7 +201,19 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 		min, max := durationMinMax(duration)
 		jobDefinition = gocron.DurationRandomJob(min, max)
 	} else {
-		jobDefinition = gocron.CronJob(schedule, false)
+		// Resolve Jenkins-style H notation if present
+		resolvedSchedule, err := resolveHashedSchedule(schedule, taskId)
+		if err != nil {
+			sf.app.Logger().Error("invalid hashed schedule", taskAttrs(task), slog.Any("error", err))
+			return
+		}
+		if resolvedSchedule != schedule {
+			sf.app.Logger().Debug("resolved hashed schedule",
+				slog.String("taskId", taskId),
+				slog.String("original", schedule),
+				slog.String("resolved", resolvedSchedule))
+		}
+		jobDefinition = gocron.CronJob(resolvedSchedule, false)
 	}
 
 	taskFunc := gocron.NewTask(sf.runTask, taskId)
@@ -238,13 +250,6 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 		sf.setActiveJob(taskId, newJob)
 		sf.app.Logger().Info("scheduled new task", taskAttrs(task))
 	}
-}
-
-// function returns -10% and +10% of given duration
-func durationMinMax(duration time.Duration) (time.Duration, time.Duration) {
-	// calculate 10% spread from duration
-	spread := duration / 10
-	return duration - spread, duration + spread
 }
 
 // run scheduled task

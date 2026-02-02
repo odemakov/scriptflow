@@ -2,6 +2,18 @@
 
 # valid id: only lowercase letters, starts with letter a-z, contains only a-z0-9 and -, has at least 6 chars
 
+# Schedule formats:
+#   Cron:     "*/5 * * * *"     - standard 5-field cron
+#   Duration: "@every 5m"       - runs with ~10% jitter to spread load
+#
+# Jenkins-style H (hash) notation for load distribution:
+#   "H * * * *"        - run once per hour at consistent minute (0-59)
+#   "H(0-30) * * * *"  - run once per hour between minute 0-30
+#   "H H * * *"        - run once per day at consistent hour and minute
+#
+# H is deterministic per task - same task always runs at same time.
+# Different tasks get distributed across the range based on task ID hash.
+
 projects:
   - name: Project 1
     config:
@@ -53,9 +65,15 @@ tasks:
     prepend_datetime: true
   - name: Deploy
     project: project-2
-    command: /bin/deploy
+    command: "sleep $((RANDOM % 100)); echo done"
     schedule: "20 4 * * *"
     node: vm1-deployer
+    active: true
+  - name: Distributed task
+    project: project-2
+    command: "sleep $((RANDOM % 50)); echo done"
+    schedule: "H(0-30) * * * *"  # runs hourly between minute 0-30, exact minute based on task ID
+    node: vm1-root
     active: true
 
 channels:

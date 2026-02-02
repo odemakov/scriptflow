@@ -146,19 +146,20 @@ func (sf *ScriptFlow) sendNotification(notificationContext NotificationContext) 
 	mc := sf.buildMessageContext(notificationContext)
 
 	channelType := notificationContext.Channel.GetString("type")
-	if channelType == ChannelTypeEmail {
+	switch channelType {
+	case ChannelTypeEmail:
 		message, err := sf.notificationEmailMessage(mc)
 		if err != nil {
 			return err
 		}
 		return sf.sendEmailNotification(mc.Subject, message, notificationContext.Channel)
-	} else if channelType == ChannelTypeSlack {
+	case ChannelTypeSlack:
 		message, err := sf.notificationSlackMessage(mc)
 		if err != nil {
 			return err
 		}
 		return sf.sendSlackNotification(mc.Subject, message, notificationContext.Channel)
-	} else {
+	default:
 		sf.app.Logger().Error("unknown channel type", slog.Any("type", channelType))
 	}
 	return nil
