@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -26,7 +27,10 @@ func (sf *ScriptFlow) JobCheckNodeStatus() {
 			oldStatus := node.GetString("status")
 			var newStatus string
 			// with empty callback functions, we just check if the command runs successfully
-			_, err := sf.sshPool.Run(nodeSSHConfig(node), "uptime", func(stdout string) {}, func(stderr string) {})
+			// use context with timeout to prevent goroutine leaks on unreachable nodes
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			_, err := sf.sshPool.RunContext(ctx, nodeSSHConfig(node), "uptime", func(stdout string) {}, func(stderr string) {})
 			if err != nil {
 				sf.app.Logger().Error("failed to check node status", nodeAttrs(node), slog.Any("error", err))
 				newStatus = NodeStatusOffline

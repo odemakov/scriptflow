@@ -23,6 +23,8 @@ import (
 var (
 	openWebSockets      int
 	openWebSocketsMutex sync.Mutex
+	// Pre-compiled regex for log delimiter matching
+	logDelimiterRegex = regexp.MustCompile(`^\[.*\] \[scriptflow\] run (\S+)$`)
 )
 
 func (sf *ScriptFlow) authenticateWebSocketConnection(conn *websocket.Conn, taskId string) (*core.Record, error) {
@@ -178,9 +180,6 @@ func (sf *ScriptFlow) ApiKillRun(e *core.RequestEvent) error {
 }
 
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {
-	//delimiterRegex := regexp.MustCompile(`\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}\] \[scriptflow\] run ([a-z0-9]{15})`)
-	delimiterRegex := regexp.MustCompile(`^\[.*\] \[scriptflow\] run (\S+)$`)
-
 	file, err := os.Open(logFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file %v: %v", logFilePath, err)
@@ -194,7 +193,7 @@ func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		// Check if the line matches the delimiter pattern
-		if matches := delimiterRegex.FindStringSubmatch(line); matches != nil {
+		if matches := logDelimiterRegex.FindStringSubmatch(line); matches != nil {
 			// Extract the runId from the delimiter line
 			currentRunId := matches[1]
 

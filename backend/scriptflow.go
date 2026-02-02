@@ -400,6 +400,7 @@ func nodeSSHConfig(node *core.Record) *sshrun.SSHConfig {
 		User:       node.GetString("username"),
 		Host:       node.GetString("host"),
 		PrivateKey: node.GetString("private_key"),
+		Timeout:    10 * time.Second,
 	}
 }
 
