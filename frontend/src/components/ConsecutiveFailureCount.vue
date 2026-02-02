@@ -55,7 +55,7 @@ const updateFailureCount = () => {
   }
 };
 
-// Watch for changes in the runs data - with immediate to catch initial data
+// Watch for changes in the runs data for this task
 watch(
   () => useRuns.getLastRuns[props.taskId],
   () => {
@@ -64,17 +64,15 @@ watch(
   { deep: true, immediate: true },
 );
 
-// Watch for changes in the entire runs object - to catch newly added runs
-watch(
-  () => useRuns.getLastRuns,
-  () => {
-    updateFailureCount();
-  },
-  { deep: true },
-);
-
 // Load data
 onMounted(async () => {
+  // Skip fetch if data already exists (batch fetched by parent)
+  if (useRuns.getLastRuns[props.taskId]) {
+    updateFailureCount();
+    isLoading.value = false;
+    return;
+  }
+
   isLoading.value = true;
   try {
     // Fetch run data for this task

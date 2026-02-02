@@ -36,6 +36,38 @@ export const useRunStore = defineStore("runs", () => {
     });
     run.value = record;
   }
+
+  // Fetch last N runs for multiple tasks in a single request
+  async function fetchLastRunsForTasks(taskIds: string[], limitPerTask: number = 10) {
+    if (taskIds.length === 0) return;
+
+    // Build filter: task.id='id1' || task.id='id2' || ...
+    const filter = taskIds.map((id) => pb.filter("task.id={:id}", { id })).join(" || ");
+
+    // Fetch enough records to cover all tasks (worst case: limitPerTask * taskIds.length)
+    const records = await pb.collection(CCollectionName.runs).getList<IRun>(1, limitPerTask * taskIds.length, {
+      filter,
+      sort: "-created",
+      expand: "task",
+    });
+
+    // Group by taskId
+    const grouped: Record<string, IRun[]> = {};
+    for (const taskId of taskIds) {
+      grouped[taskId] = [];
+    }
+    for (const run of records.items) {
+      const taskId = run.expand?.task?.id || run.task;
+      if (taskId && grouped[taskId] && grouped[taskId].length < limitPerTask) {
+        grouped[taskId].push(run);
+      }
+    }
+
+    // Update store
+    for (const [taskId, runs] of Object.entries(grouped)) {
+      lastRuns.value[taskId] = runs;
+    }
+  }
   async function subscribe(options?: { taskId?: string }) {
     const { taskId } = options || {};
 
@@ -110,13 +142,15 @@ export const useRunStore = defineStore("runs", () => {
     }
   }
   function _addStoreRun(taskId: string, newRun: IRun) {
-    if (taskId in lastRuns.value) {
-      // Check if run already exists to prevent duplicates
-      const exists = lastRuns.value[taskId].some((run) => run.id === newRun.id);
-      if (!exists) {
-        lastRuns.value[taskId].unshift(newRun);
-        lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
-      }
+    // Initialize array for new taskIds
+    if (!(taskId in lastRuns.value)) {
+      lastRuns.value[taskId] = [];
+    }
+    // Check if run already exists to prevent duplicates
+    const exists = lastRuns.value[taskId].some((run) => run.id === newRun.id);
+    if (!exists) {
+      lastRuns.value[taskId].unshift(newRun);
+      lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
     }
   }
   function getConsecutiveFailureCount(taskId: string) {
@@ -140,6 +174,7 @@ export const useRunStore = defineStore("runs", () => {
 
   return {
     fetchLastRuns,
+    fetchLastRunsForTasks,
     fetchRun,
     getConsecutiveFailureCount,
     getLastRuns,

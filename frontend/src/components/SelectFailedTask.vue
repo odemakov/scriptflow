@@ -108,20 +108,20 @@ onMounted(async () => {
       countLoaded: false,
     }));
 
-    // Subscribe to run updates for each task
-    for (const task of tasks.value) {
-      await useRuns.subscribe({ taskId: task.id });
-    }
+    // Batch fetch last runs for all tasks (single request)
+    const taskIds = tasks.value.map((t) => t.id);
+    await useRuns.fetchLastRunsForTasks(taskIds, 10);
+
+    // Subscribe to all run updates (single subscription)
+    await useRuns.subscribe();
   } finally {
     isLoading.value = false;
   }
 });
 
 onBeforeUnmount(() => {
-  // Clean up subscriptions for all tasks
-  for (const task of tasks.value) {
-    useRuns.unsubscribe({ taskId: task.id });
-  }
+  // Clean up subscription
+  useRuns.unsubscribe();
 });
 </script>
 
