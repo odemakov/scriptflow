@@ -218,6 +218,9 @@ func (sf *ScriptFlow) setupScheduler() {
 		// Schedule existing tasks, each tasks will be scheduled in their own goroutine
 		sf.scheduleActiveTasks()
 
+		// Start scheduler after all tasks are scheduled and PocketBase is fully ready
+		sf.scheduler.Start()
+
 		return e.Next()
 	})
 

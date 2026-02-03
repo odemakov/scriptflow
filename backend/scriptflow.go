@@ -33,7 +33,7 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath st
 	if err != nil {
 		return nil, err
 	}
-	scheduler.Start()
+	// Note: scheduler.Start() is called in OnServe hook after PocketBase is fully ready
 
 	ctx, cancel := context.WithCancel(context.Background())
 
