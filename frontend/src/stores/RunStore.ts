@@ -38,7 +38,7 @@ export const useRunStore = defineStore("runs", () => {
   }
 
   // Fetch last N runs for multiple tasks in a single request
-  async function fetchLastRunsForTasks(taskIds: string[], limitPerTask: number = 10) {
+  async function fetchLastRunsForTasks(taskIds: string[], limitPerTask: number = 10, expand_task: boolean = true) {
     if (taskIds.length === 0) return;
 
     // Build filter: task.id='id1' || task.id='id2' || ...
@@ -48,7 +48,7 @@ export const useRunStore = defineStore("runs", () => {
     const records = await pb.collection(CCollectionName.runs).getList<IRun>(1, limitPerTask * taskIds.length, {
       filter,
       sort: "-created",
-      expand: "task",
+      expand: expand_task ? "task" : "",
     });
 
     // Group by taskId
@@ -68,11 +68,11 @@ export const useRunStore = defineStore("runs", () => {
       lastRuns.value[taskId] = runs;
     }
   }
-  async function subscribe(options?: { taskId?: string }) {
-    const { taskId } = options || {};
+  async function subscribe(options?: { taskId?: string; projectId?: string; nodeId?: string }) {
+    const { taskId, projectId, nodeId } = options || {};
 
     // Build subscription key
-    const key = taskId || "all";
+    const key = taskId ? taskId : projectId ? `project:${projectId}` : nodeId ? `node:${nodeId}` : "all";
 
     // Prevent duplicate subscriptions
     if (activeSubscriptions.has(key)) {
@@ -86,6 +86,10 @@ export const useRunStore = defineStore("runs", () => {
     let filter = "";
     if (taskId) {
       filter = pb.filter("task.id={:taskId}", { taskId });
+    } else if (projectId) {
+      filter = pb.filter("task.project.id={:projectId}", { projectId });
+    } else if (nodeId) {
+      filter = pb.filter("task.node.id={:nodeId}", { nodeId });
     }
 
     const unsubscribeFn = await pb
@@ -116,9 +120,9 @@ export const useRunStore = defineStore("runs", () => {
     activeSubscriptions.set(key, unsubscribeFn);
   }
 
-  function unsubscribe(options?: { taskId?: string }) {
-    const { taskId } = options || {};
-    const key = taskId || "all";
+  function unsubscribe(options?: { taskId?: string; projectId?: string; nodeId?: string }) {
+    const { taskId, projectId, nodeId } = options || {};
+    const key = taskId ? taskId : projectId ? `project:${projectId}` : nodeId ? `node:${nodeId}` : "all";
     const unsubscribeFn = activeSubscriptions.get(key);
     if (unsubscribeFn) {
       unsubscribeFn();
