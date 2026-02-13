@@ -1,6 +1,6 @@
 # Makefile
 
-.PHONY: dev create_migration_snapshot stop test test-backend test-frontend clean lintgo
+.PHONY: dev create_migration_snapshot stop test test-backend test-frontend clean lintgo lint-frontend build-frontend
 
 DOCKER_COMPOSE=docker compose
 DOCKER=docker
@@ -34,3 +34,11 @@ clean:
 
 lintgo:
 	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golangci/golangci-lint:v2.8.0 golangci-lint run -c ./golangci.yml ./...
+
+lint-frontend:
+	$(DOCKER) build --no-cache --target builder-frontend -t $(PROJECT_NAME):builder-frontend .
+	$(DOCKER) run --rm $(PROJECT_NAME):builder-frontend npx vue-tsc --noEmit
+
+build-frontend:
+	$(DOCKER) build --no-cache --target builder-frontend -t $(PROJECT_NAME):builder-frontend .
+	$(DOCKER) run --rm $(PROJECT_NAME):builder-frontend npx vite build
