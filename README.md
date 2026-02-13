@@ -1,43 +1,44 @@
-# Scriptflow is a Distributed Command Scheduler with web interface
+# ScriptFlow
 
-**ScriptFlow** is a Distributed Command Scheduler designed to manage and execute commands across multiple nodes with customizable scheduling. It handles logs efficiently and includes notifications to keep users updated on task statuses and results.
+Distributed command scheduler with a web UI. Run scripts across multiple nodes on a schedule, collect logs in one place, get notified when things break.
 
-ScriptFlow is easy to install and maintain, built on a lightweight [PocketBase](https://pocketbase.io) framework. The entire system is contained in a single file, with only two additional folders: one for the database and one for logs. This simplicity makes setup quick and ensures users can manage and monitor tasks without the hassle of complex systems.
+Built on [PocketBase](https://pocketbase.io) — ships as a single binary. Two folders (database + logs) and you're done.
 
-# Existing systems
+## Why not just use...
 
-- **Cron**: A traditional Unix-based job scheduler, Cron is powerful but lacks centralized management, web interface, and notification capabilities.
-- **Jenkins**: Primarily a CI/CD tool, Jenkins can schedule tasks across nodes but is heavyweight and complex to set up for simpler scheduling needs.
-- **Airflow**: Apache Airflow excels at orchestrating workflows but requires significant resources and knowledge to install and manage.
-- **Ansible**: Often used for configuration management and ad-hoc command execution, it doesn’t focus on recurring job scheduling.
-- **Kubernetes CronJobs**: Built for containerized environments, it’s complex and overkill for simpler scheduling needs outside Kubernetes.
+- **Cron** — no central management, no UI, no notifications
+- **Jenkins** — way too heavy for "run this script every hour"
+- **Airflow** — great for data pipelines, overkill for ops tasks
+- **Ansible** — config management tool, not a scheduler
+- **K8s CronJobs** — great if you're running Kubernetes
 
-# Features
+## What you get
 
-- easy script execution and monitoring
-- centralized log collection and management
-- real-time tracking of task statuses and outcomes
-- quick and hassle-free installation
-- user-friendly web interface
-- all bells and whistles come with [PocketBase](https://pocketbase.io)
+- Script execution and monitoring from a single dashboard
+- Centralized log collection
+- Real-time task status tracking
+- Email and Slack notifications
+- Everything PocketBase gives you (auth, realtime, API, admin UI)
+- 5-minute setup
 
-# Quick Start
+## Quick Start
 
-Create project directory `mkdir scriptflow && cd scriptflow`
+```bash
+mkdir scriptflow && cd scriptflow
+wget https://github.com/odemakov/scriptflow/releases/download/v0.0.4/scriptflow_Linux_x86_64.tar.gz
+tar -xzf scriptflow_Linux_x86_64.tar.gz
+./scriptflow --http 0.0.0.0:8090 --dev serve
+```
 
-Download release `wget https://github.com/odemakov/scriptflow/releases/download/v0.0.4/scriptflow_Linux_x86_64.tar.gz`
+You can also define projects, nodes, tasks and notifications in a config file — see `config-example.yml`.
 
-Extract it `tar -xzf scriptflow_Linux_x86_64.tar.gz`
+```bash
+./scriptflow --http 0.0.0.0:8090 --dev --config config-example.yml serve
+```
 
-Run `./scriptflow --http 0.0.0.0:8090 --dev serve`
+## Running as a systemd service
 
-It's possible do define projects, nodes and tasks in the config file, see `config-example.yml` file.
-
-Run `./scriptflow --http 0.0.0.0:8090 --dev --config config-example.yml serve`
-
-# Run as system service
-
-Create `/etc/systemd/system/scriptflow.service` file
+Create `/etc/systemd/system/scriptflow.service`:
 
 ```
 [Unit]
@@ -58,25 +59,34 @@ ExecStart      = /data/scriptflow/scriptflow --dir /data/scriptflow/data/pb_data
 WantedBy = multi-user.target
 ```
 
-Enable and restart service
+Then enable and start it:
 
-`systemctl daemon-reload && systemctl enable scriptflow.service && systemctl start scriptflow.service`
+```bash
+systemctl daemon-reload && systemctl enable scriptflow.service && systemctl start scriptflow.service
+```
 
-# Cron scheduling
+## Scheduling
 
-The `Task.schedule` field accepts the following formats:
+The `Task.schedule` field accepts:
 
-1. **Cron Expression**: A standard cron expression like `0 * * * *`, which means the task will run at the start of every hour.
-2. **Duration Expression**: A duration string prefixed with `@every`, such as `@every 1h30m`, which means the task will run every 1 hour and 30 minutes. Duration tasks have ±10% jitter to spread load. For more details on duration format, see [time.ParseDuration documentation](https://pkg.go.dev/time#ParseDuration).
-3. **Jenkins-style H (Hash)**: Use `H` to distribute tasks across a time range:
-   - `H * * * *` - run hourly at a consistent minute (0-59)
-   - `H(0-30) * * * *` - run hourly between minute 0-30
-   - `H H(0-6) * * *` - run daily between midnight and 6 AM
+**Cron expressions** — `0 * * * *` (top of every hour), the usual.
 
-   The `H` value is deterministic per task ID - the same task always runs at the same time, but different tasks get distributed across the range. This prevents the "thundering herd" problem when many tasks share the same schedule.
+**Duration strings** — `@every 1h30m` runs every 1.5 hours. Has ±10% jitter built in to spread load. See [time.ParseDuration](https://pkg.go.dev/time#ParseDuration) for the format.
 
-# Development
+**Jenkins-style H (hash)** — distributes tasks across a time range:
 
-Development environment completely inside Docker with autorestart backend and frotend apps on file changes.
+```
+H * * * *         # hourly, at a consistent but spread-out minute
+H(0-30) * * * *   # hourly, somewhere in the first 30 minutes
+H H(0-6) * * *    # daily, somewhere between midnight and 6 AM
+```
 
-`make dev`
+The hash is deterministic per task ID — same task always fires at the same time, but different tasks get spread out. Avoids the thundering herd problem.
+
+## Development
+
+Everything runs in Docker with auto-restart on file changes:
+
+```bash
+make dev
+```

@@ -37,7 +37,7 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
 release:
-  draft: true
+  draft: false
 
 changelog:
   # sort: asc
