@@ -41,24 +41,21 @@ export const useTaskStore = defineStore("tasks", () => {
 
   // methods
   async function fetchTasksByProject(projectId: string) {
-    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
+    tasksByProject.value = await pb.collection(CCollectionName.tasks).getFullList<ITask>({
       expand: "node,project",
       filter: pb.filter("project.id={:id}", { id: projectId }),
     });
-    tasksByProject.value = records.items;
   }
   async function fetchTasksByNode(nodeId: string) {
-    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
+    tasksByNode.value = await pb.collection(CCollectionName.tasks).getFullList<ITask>({
       expand: "node,project",
       filter: pb.filter("node.id={:id}", { id: nodeId }),
     });
-    tasksByNode.value = records.items;
   }
   async function fetchTasks() {
-    const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
+    tasks.value = await pb.collection(CCollectionName.tasks).getFullList<ITask>({
       sort: "id",
     });
-    tasks.value = records.items;
   }
   async function fetchTask(taskId: string) {
     const record = await pb
