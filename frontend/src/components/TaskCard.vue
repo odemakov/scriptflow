@@ -68,7 +68,7 @@ watch(
     }
 
     try {
-      await useRuns.fetchLastRuns(props.task.id);
+      await useRuns.fetchRuns(props.task.id);
       await useRuns.subscribe({ taskId: props.task.id });
       previousTaskId = props.task.id;
     } catch (error: unknown) {

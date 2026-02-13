@@ -12,15 +12,14 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
 
   // methods
   async function fetchSubscriptionsForTask(taskId: string) {
-    const records = await pb
+    subscriptions.value = await pb
       .collection(CCollectionName.subscriptions)
-      .getList<ISubscription>(1, 100, {
+      .getFullList<ISubscription>({
         requestKey: taskId,
         expand: "channel",
         sort: "-active,-created",
         filter: pb.filter("task={:taskId}", { taskId: taskId }),
       });
-    subscriptions.value = records.items;
   }
 
   async function update(subscriptionId: string, updatedData: Object) {

@@ -6,29 +6,47 @@ import { getPocketBaseInstance } from "./AuthStore";
 
 export const useRunStore = defineStore("runs", () => {
   const pb = getPocketBaseInstance();
-  // lastRuns is a dictionary of 100 last runs for each task with taskId as key
+  const perPage = 50;
+  // lastRuns is a dictionary of last runs for each task with taskId as key
   const lastRuns = ref({} as Record<string, IRun[]>);
+  const totalRuns = ref({} as Record<string, number>);
   const run = ref({} as IRun);
   // Track active subscriptions by taskId
   const activeSubscriptions = new Map<string, () => void>();
 
   // getters
   const getLastRuns = computed(() => lastRuns.value);
+  const getTotalRuns = computed(() => totalRuns.value);
   const getRun = computed(() => run.value);
 
+  function hasMoreRuns(taskId: string): boolean {
+    return (lastRuns.value[taskId]?.length ?? 0) < (totalRuns.value[taskId] ?? 0);
+  }
+
   // methods
-  async function fetchLastRuns(
+  async function fetchRuns(
     taskId: string,
-    limit: number = 100,
-    expand_task: boolean = true,
+    options?: { limit?: number; expand_task?: boolean; more?: boolean },
   ) {
-    const records = await pb.collection(CCollectionName.runs).getList<IRun>(1, limit, {
-      requestKey: taskId,
+    const { limit = perPage, expand_task = true, more = false } = options || {};
+    const current = more ? (lastRuns.value[taskId]?.length ?? 0) : 0;
+    const page = more ? Math.floor(current / perPage) + 1 : 1;
+    const records = await pb.collection(CCollectionName.runs).getList<IRun>(page, limit, {
+      requestKey: more ? `${taskId}-more` : taskId,
       filter: pb.filter("task.id={:taskId}", { taskId: taskId }),
       sort: "-created",
       expand: expand_task ? "task" : "",
     });
-    lastRuns.value[taskId] = records.items;
+    if (more) {
+      // Deduplicate: subscription may have prepended runs since the last fetch,
+      // shifting server-side pagination and causing overlap.
+      const existingIds = new Set(lastRuns.value[taskId]?.map((r) => r.id));
+      const newItems = records.items.filter((r) => !existingIds.has(r.id));
+      lastRuns.value[taskId] = [...(lastRuns.value[taskId] || []), ...newItems];
+    } else {
+      lastRuns.value[taskId] = records.items;
+    }
+    totalRuns.value[taskId] = records.totalItems;
   }
   async function fetchRun(runId: string) {
     const record = await pb.collection(CCollectionName.runs).getOne<ITask>(runId, {
@@ -123,7 +141,7 @@ export const useRunStore = defineStore("runs", () => {
     const exists = lastRuns.value[taskId].some((run) => run.id === newRun.id);
     if (!exists) {
       lastRuns.value[taskId].unshift(newRun);
-      lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, 100);
+      lastRuns.value[taskId] = lastRuns.value[taskId].slice(0, Math.max(lastRuns.value[taskId].length, perPage));
     }
   }
   function getConsecutiveFailureCount(taskId: string) {
@@ -146,11 +164,13 @@ export const useRunStore = defineStore("runs", () => {
   }
 
   return {
-    fetchLastRuns,
     fetchRun,
+    fetchRuns,
     getConsecutiveFailureCount,
     getLastRuns,
+    getTotalRuns,
     getRun,
+    hasMoreRuns,
     subscribe,
     unsubscribe,
   };

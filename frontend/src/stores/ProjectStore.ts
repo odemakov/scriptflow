@@ -14,12 +14,11 @@ export const useProjectStore = defineStore("projects", () => {
 
   // methods
   async function fetchProjects() {
-    const records = await pb
+    projects.value = await pb
       .collection(CCollectionName.projects)
-      .getList<IProject>(1, 50, {
+      .getFullList<IProject>({
         sort: "-created",
       });
-    projects.value = records.items;
   }
 
   async function fetchProject(projectId: string) {

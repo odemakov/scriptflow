@@ -109,7 +109,7 @@ const fetchLastRunsAndSubscribe = async () => {
     // A single batched query sorted by -created can miss tasks whose latest
     // run is older than the perPage cutoff dominated by frequently-run tasks.
     const taskIds = tasks.value.map((t: ITask) => t.id);
-    await Promise.all(taskIds.map((id) => useRuns.fetchLastRuns(id, 1, false)));
+    await Promise.all(taskIds.map((id) => useRuns.fetchRuns(id, { limit: 1, expand_task: false })));
 
     // Single subscription for all runs in this entity
     if (props.entityType === CEntityType.node) {

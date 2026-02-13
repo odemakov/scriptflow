@@ -20,6 +20,22 @@ const useToasts = useToastStore();
 const useRuns = useRunStore();
 const lastRuns = computed(() => useRuns.getLastRuns[props.task.id]);
 const loading = ref(true);
+const loadingMore = ref(false);
+
+const showMoreButton = computed(() => useRuns.hasMoreRuns(props.task.id));
+
+async function loadMore() {
+  loadingMore.value = true;
+  try {
+    await useRuns.fetchRuns(props.task.id, { more: true });
+  } catch (error: unknown) {
+    if (!isAutoCancelError(error)) {
+      useToasts.addToast((error as Error).message, "error");
+    }
+  } finally {
+    loadingMore.value = false;
+  }
+}
 
 const gotoRun = (run: IRun) => {
   // Determine base name and params based on run status
@@ -61,7 +77,7 @@ watch(
     }
 
     try {
-      await useRuns.fetchLastRuns(props.task.id);
+      await useRuns.fetchRuns(props.task.id);
       await useRuns.subscribe({ taskId: props.task.id });
       previousTaskId = props.task.id;
     } catch (error: unknown) {
@@ -94,7 +110,6 @@ onBeforeUnmount(() => {
         <tr class="">
           <th class="">id</th>
           <th class="">status</th>
-          <th class="">exit code</th>
           <th class="">error</th>
           <th class="">running time</th>
           <th class="">created</th>
@@ -110,9 +125,6 @@ onBeforeUnmount(() => {
           </td>
           <td>
             <RunStatus :run="run" />
-          </td>
-          <td>
-            {{ run.exit_code }}
           </td>
           <td>
             <div v-if="run.connection_error" class="bg-error/20 p-1 rounded-md">
@@ -131,5 +143,11 @@ onBeforeUnmount(() => {
         </tr>
       </tbody>
     </table>
+    <div v-if="showMoreButton" class="flex justify-center py-4">
+      <button class="btn btn-sm btn-ghost" :disabled="loadingMore" @click="loadMore">
+        <span v-if="loadingMore" class="loading loading-spinner loading-sm"></span>
+        <span v-else>Show more</span>
+      </button>
+    </div>
   </div>
 </template>

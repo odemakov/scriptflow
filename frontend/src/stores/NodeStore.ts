@@ -14,12 +14,11 @@ export const useNodeStore = defineStore("nodes", () => {
 
   // methods
   async function fetchNodes() {
-    const records = await pb
+    nodes.value = await pb
       .collection(CCollectionName.nodes)
-      .getList<INode>(1, 50, {
+      .getFullList<INode>({
         sort: "-created",
       });
-    nodes.value = records.items;
   }
 
   async function fetchNode(nodeId: string) {
