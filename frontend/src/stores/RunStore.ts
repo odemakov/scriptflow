@@ -37,37 +37,6 @@ export const useRunStore = defineStore("runs", () => {
     run.value = record;
   }
 
-  // Fetch last N runs for multiple tasks in a single request
-  async function fetchLastRunsForTasks(taskIds: string[], limitPerTask: number = 10, expand_task: boolean = true) {
-    if (taskIds.length === 0) return;
-
-    // Build filter: task.id='id1' || task.id='id2' || ...
-    const filter = taskIds.map((id) => pb.filter("task.id={:id}", { id })).join(" || ");
-
-    // Fetch enough records to cover all tasks (worst case: limitPerTask * taskIds.length)
-    const records = await pb.collection(CCollectionName.runs).getList<IRun>(1, limitPerTask * taskIds.length, {
-      filter,
-      sort: "-created",
-      expand: expand_task ? "task" : "",
-    });
-
-    // Group by taskId
-    const grouped: Record<string, IRun[]> = {};
-    for (const taskId of taskIds) {
-      grouped[taskId] = [];
-    }
-    for (const run of records.items) {
-      const taskId = run.expand?.task?.id || run.task;
-      if (taskId && grouped[taskId] && grouped[taskId].length < limitPerTask) {
-        grouped[taskId].push(run);
-      }
-    }
-
-    // Update store
-    for (const [taskId, runs] of Object.entries(grouped)) {
-      lastRuns.value[taskId] = runs;
-    }
-  }
   async function subscribe(options?: { taskId?: string; projectId?: string; nodeId?: string }) {
     const { taskId, projectId, nodeId } = options || {};
 
@@ -178,7 +147,6 @@ export const useRunStore = defineStore("runs", () => {
 
   return {
     fetchLastRuns,
-    fetchLastRunsForTasks,
     fetchRun,
     getConsecutiveFailureCount,
     getLastRuns,
