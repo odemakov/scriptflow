@@ -4,6 +4,9 @@ import { computed, ref } from "vue";
 
 import { getPocketBaseInstance } from "./AuthStore";
 
+const SORT_FIELD_KEY = "taskSortField";
+const SORT_DIR_KEY = "taskSortDirection";
+
 export const useTaskStore = defineStore("tasks", () => {
   const pb = getPocketBaseInstance();
   const task = ref({} as ITask);
@@ -12,6 +15,23 @@ export const useTaskStore = defineStore("tasks", () => {
   const tasksByProject = ref([] as ITask[]);
   // Track active subscriptions by key (e.g., "project:abc123" or "node:xyz789")
   const activeSubscriptions = new Map<string, () => void>();
+
+  // Sort state with localStorage persistence
+  const sortField = ref<TaskSortField>(
+    (localStorage.getItem(SORT_FIELD_KEY) as TaskSortField) || "id",
+  );
+  const sortDirection = ref<TaskSortDirection>(
+    (localStorage.getItem(SORT_DIR_KEY) as TaskSortDirection) || "asc",
+  );
+
+  function setSortField(field: TaskSortField) {
+    sortField.value = field;
+    localStorage.setItem(SORT_FIELD_KEY, field);
+  }
+  function setSortDirection(dir: TaskSortDirection) {
+    sortDirection.value = dir;
+    localStorage.setItem(SORT_DIR_KEY, dir);
+  }
 
   // getters
   const getTask = computed(() => task.value);
@@ -23,7 +43,6 @@ export const useTaskStore = defineStore("tasks", () => {
   async function fetchTasksByProject(projectId: string) {
     const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
       expand: "node,project",
-      sort: "-active,-created",
       filter: pb.filter("project.id={:id}", { id: projectId }),
     });
     tasksByProject.value = records.items;
@@ -31,7 +50,6 @@ export const useTaskStore = defineStore("tasks", () => {
   async function fetchTasksByNode(nodeId: string) {
     const records = await pb.collection(CCollectionName.tasks).getList<ITask>(1, 200, {
       expand: "node,project",
-      sort: "-active,-created",
       filter: pb.filter("node.id={:id}", { id: nodeId }),
     });
     tasksByNode.value = records.items;
@@ -109,9 +127,9 @@ export const useTaskStore = defineStore("tasks", () => {
       filter = pb.filter("node.id={:nodeId}", { nodeId });
     }
 
-    const unsubscribeFn = await pb
-      .collection(CCollectionName.tasks)
-      .subscribe("*", (data: RecordSubscription) => {
+    const unsubscribeFn = await pb.collection(CCollectionName.tasks).subscribe(
+      "*",
+      (data: RecordSubscription) => {
         if (
           data.record?.collectionName == CCollectionName.tasks &&
           (data.action == "create" || data.action == "update")
@@ -129,7 +147,9 @@ export const useTaskStore = defineStore("tasks", () => {
             consecutive_failure_count: data.record.consecutive_failure_count,
           });
         }
-      }, filter ? { filter } : undefined);
+      },
+      filter ? { filter } : undefined,
+    );
 
     // Replace placeholder with actual unsubscribe function
     activeSubscriptions.set(key, unsubscribeFn);
@@ -147,11 +167,7 @@ export const useTaskStore = defineStore("tasks", () => {
   // private functions
   function _updateStoredTask(taskId: string, updatedData: Object) {
     // Update all task arrays
-    const taskArrays = [
-      tasks.value,
-      tasksByNode.value,
-      tasksByProject.value,
-    ];
+    const taskArrays = [tasks.value, tasksByNode.value, tasksByProject.value];
 
     for (const taskArray of taskArrays) {
       const taskIndex = taskArray.findIndex((t: ITask) => t.id === taskId);
@@ -180,6 +196,10 @@ export const useTaskStore = defineStore("tasks", () => {
     getTasks,
     getTasksByNode,
     getTasksByProject,
+    sortField,
+    sortDirection,
+    setSortField,
+    setSortDirection,
     subscribe,
     unsubscribe,
     updateTask,

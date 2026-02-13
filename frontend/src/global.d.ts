@@ -9,6 +9,8 @@ declare global {
   type IChannel = Types.IChannel;
   type ISubscription = Types.ISubscription;
   type INotification = Types.INotification;
+  type TaskSortField = Types.TaskSortField;
+  type TaskSortDirection = Types.TaskSortDirection;
 
   // Declare constants in a global namespace
   const CRunStatus: typeof Types.CRunStatus;

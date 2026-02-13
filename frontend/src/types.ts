@@ -168,3 +168,6 @@ export const CEntityType = {
 } as const;
 
 export type EntityType = (typeof CEntityType)[keyof typeof CEntityType];
+
+export type TaskSortField = "id" | "run_status" | "running_time" | "run_updated";
+export type TaskSortDirection = "asc" | "desc";
