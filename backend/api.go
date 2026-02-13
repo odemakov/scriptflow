@@ -16,6 +16,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -177,6 +178,51 @@ func (sf *ScriptFlow) ApiKillRun(e *core.RequestEvent) error {
 	}
 
 	return e.JSON(http.StatusOK, map[string]string{"status": "killed", "runId": runId})
+}
+
+// ApiLatestRuns returns the most recent run per task in a single query,
+// replacing N individual SDK calls from the frontend task list view.
+func (sf *ScriptFlow) ApiLatestRuns(e *core.RequestEvent) error {
+	taskIdsParam := e.Request.URL.Query().Get("taskIds")
+	if taskIdsParam == "" {
+		return e.JSON(http.StatusOK, map[string]RunItem{})
+	}
+
+	taskIds := strings.Split(taskIdsParam, ",")
+	if len(taskIds) == 0 {
+		return e.JSON(http.StatusOK, map[string]RunItem{})
+	}
+
+	// Build placeholders for parameterized query
+	params := dbx.Params{}
+	placeholders := make([]string, len(taskIds))
+	for i, id := range taskIds {
+		key := fmt.Sprintf("t%d", i)
+		params[key] = id
+		placeholders[i] = "{:" + key + "}"
+	}
+
+	query := sf.app.DB().NewQuery(fmt.Sprintf(`
+		SELECT r.* FROM runs r
+		INNER JOIN (
+			SELECT task, MAX(created) as max_created FROM runs
+			WHERE task IN (%s)
+			GROUP BY task
+		) latest ON r.task = latest.task AND r.created = latest.max_created
+	`, strings.Join(placeholders, ",")))
+	query.Bind(params)
+
+	var runs []RunItem
+	if err := query.All(&runs); err != nil {
+		return e.InternalServerError(err.Error(), nil)
+	}
+
+	result := make(map[string]RunItem, len(runs))
+	for _, run := range runs {
+		result[run.Task] = run
+	}
+
+	return e.JSON(http.StatusOK, result)
 }
 
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {

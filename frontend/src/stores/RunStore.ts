@@ -2,6 +2,8 @@ import { defineStore } from "pinia";
 import { RecordSubscription } from "pocketbase";
 import { computed, ref } from "vue";
 
+import config from "@/config";
+import { useAuthStore } from "./AuthStore";
 import { getPocketBaseInstance } from "./AuthStore";
 
 export const useRunStore = defineStore("runs", () => {
@@ -48,6 +50,23 @@ export const useRunStore = defineStore("runs", () => {
     }
     totalRuns.value[taskId] = records.totalItems;
   }
+  async function fetchLatestRuns(taskIds: string[]) {
+    if (taskIds.length === 0) return;
+
+    const auth = useAuthStore();
+    const url = `${config.baseUrl}api/scriptflow/runs/latest?taskIds=${taskIds.join(",")}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `${auth.token}` },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch latest runs: ${response.statusText}`);
+    }
+    const data: Record<string, IRun> = await response.json();
+    for (const [taskId, run] of Object.entries(data)) {
+      lastRuns.value[taskId] = [run];
+    }
+  }
+
   async function fetchRun(runId: string) {
     const record = await pb.collection(CCollectionName.runs).getOne<ITask>(runId, {
       expand: "task",
@@ -164,6 +183,7 @@ export const useRunStore = defineStore("runs", () => {
   }
 
   return {
+    fetchLatestRuns,
     fetchRun,
     fetchRuns,
     getConsecutiveFailureCount,

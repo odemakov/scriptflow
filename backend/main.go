@@ -306,6 +306,7 @@ func (sf *ScriptFlow) setupApi() {
 		e.Router.GET("/api/scriptflow/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
 		e.Router.GET("/api/scriptflow/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
 		e.Router.POST("/api/scriptflow/run/{runId}/kill", sf.ApiKillRun).Bind(apis.RequireAuth())
+		e.Router.GET("/api/scriptflow/runs/latest", sf.ApiLatestRuns).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/stats", sf.ApiScriptFlowStats).Bind(apis.RequireAuth())
 		return e.Next()
 	})
