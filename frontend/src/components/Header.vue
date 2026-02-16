@@ -6,6 +6,7 @@ import UserIcon from "./UserIcon.vue";
 import config from "@/config";
 
 const auth = useAuthStore();
+const version = import.meta.env.VITE_SF_VERSION || "dev";
 
 onMounted(() => {
   auth.fetchUser();
@@ -21,9 +22,10 @@ const handleLogout = async () => {
 <template>
   <div class="navbar bg-base-300">
     <div class="flex-1">
-      <a class="btn btn-ghost text-xl bg-base-200 hover:bg-base-100" href="./"
-        >ScriptFlow</a
-      >
+      <a class="btn btn-ghost bg-base-200 hover:bg-base-100 flex flex-col items-start gap-0 h-auto py-1" href="/">
+        <span class="text-xl leading-tight">ScriptFlow</span>
+        <span v-if="version" class="text-[10px] opacity-50 leading-tight">{{ version }}</span>
+      </a>
     </div>
     <div v-if="auth.isAuthenticated" class="flex-none gap-2">
       <div class="dropdown dropdown-end">

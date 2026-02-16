@@ -1,6 +1,6 @@
 # Makefile
 
-.PHONY: dev create_migration_snapshot stop test test-backend test-frontend clean lintgo lint-frontend build-frontend
+.PHONY: dev create_migration_snapshot stop test test-backend test-frontend clean lint-backend lint-frontend build-frontend
 
 DOCKER_COMPOSE=docker compose
 DOCKER=docker
@@ -32,7 +32,7 @@ test-frontend:
 clean:
 	$(DOCKER_COMPOSE) down --volumes --remove-orphans
 
-lintgo:
+lint-backend:
 	$(DOCKER) run --rm -v $(PWD)/backend:/app -w /app golangci/golangci-lint:v2.8.0 golangci-lint run -c ./golangci.yml ./...
 
 lint-frontend:
