@@ -25,7 +25,7 @@ Built on [PocketBase](https://pocketbase.io) — ships as a single binary. Two f
 
 ```bash
 mkdir scriptflow && cd scriptflow
-wget https://github.com/odemakov/scriptflow/releases/download/v0.1.2/scriptflow_Linux_x86_64.tar.gz
+wget https://github.com/odemakov/scriptflow/releases/download/v0.1.3/scriptflow_Linux_x86_64.tar.gz
 tar -xzf scriptflow_Linux_x86_64.tar.gz
 ./scriptflow --http 0.0.0.0:8090 --dev serve
 ```
