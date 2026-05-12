@@ -49,6 +49,7 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath st
 		cancelFunc:     cancel,
 		activeJobs:     make(map[string]gocron.Job),
 		activeRuns:     make(map[string]context.CancelFunc),
+		runningTaskIds: make(map[string]struct{}),
 	}, nil
 }
 
@@ -253,6 +254,12 @@ func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
 
 // run scheduled task
 func (sf *ScriptFlow) runTask(taskId string) {
+	if !sf.tryLockTask(taskId) {
+		sf.app.Logger().Info("task already running, skipping", slog.String("taskId", taskId))
+		return
+	}
+	defer sf.unlockTask(taskId)
+
 	node, task, err := sf.findNodeAndTaskToRun(taskId)
 	if err != nil {
 		sf.app.Logger().Error("failed to find project, node or task", slog.Any("error", err))
@@ -531,6 +538,29 @@ func (sf *ScriptFlow) unregisterActiveRun(runId string) {
 	sf.runsMutex.Lock()
 	defer sf.runsMutex.Unlock()
 	delete(sf.activeRuns, runId)
+}
+
+func (sf *ScriptFlow) tryLockTask(taskId string) bool {
+	sf.taskRunMutex.Lock()
+	defer sf.taskRunMutex.Unlock()
+	if _, running := sf.runningTaskIds[taskId]; running {
+		return false
+	}
+	sf.runningTaskIds[taskId] = struct{}{}
+	return true
+}
+
+func (sf *ScriptFlow) unlockTask(taskId string) {
+	sf.taskRunMutex.Lock()
+	defer sf.taskRunMutex.Unlock()
+	delete(sf.runningTaskIds, taskId)
+}
+
+func (sf *ScriptFlow) isTaskRunning(taskId string) bool {
+	sf.taskRunMutex.Lock()
+	defer sf.taskRunMutex.Unlock()
+	_, running := sf.runningTaskIds[taskId]
+	return running
 }
 
 // KillRun cancels a running task by its run ID

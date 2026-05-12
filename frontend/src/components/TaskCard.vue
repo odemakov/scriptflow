@@ -110,28 +110,24 @@ const runTask = async () => {
   closeDropdown();
   runTaskButtonDisabled.value = true;
 
-  const oldSchedule = props.task.schedule;
+  const runUrl = `${config.baseUrl}api/scriptflow/task/${props.task.id}/run`;
   try {
-    await useTask.updateTask(props.task.id, {
-      ...props.task,
-      schedule: "@every 1s",
+    const response = await fetch(runUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `${auth.token}`,
+      },
     });
-    runTaskButtonDisabled.value = false;
+
+    const data = await response.json();
+    if (data.status !== "started") {
+      throw new Error(data.message || "Failed to start task");
+    }
   } catch (error: unknown) {
     useToasts.addToast((error as Error).message, "error");
+  } finally {
+    runTaskButtonDisabled.value = false;
   }
-
-  // Wait 1500ms: after max first trigger (1.1s) and before min second trigger (1.8s)
-  setTimeout(async () => {
-    try {
-      await useTask.updateTask(props.task.id, {
-        ...props.task,
-        schedule: oldSchedule,
-      });
-    } catch (error: unknown) {
-      useToasts.addToast((error as Error).message, "error");
-    }
-  }, 1500);
 };
 
 const killTask = async () => {

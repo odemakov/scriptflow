@@ -69,6 +69,8 @@ type ScriptFlow struct {
 	jobsMutex      sync.RWMutex
 	activeRuns     map[string]context.CancelFunc
 	runsMutex      sync.RWMutex
+	runningTaskIds map[string]struct{}
+	taskRunMutex   sync.Mutex
 }
 
 // type Node struct {

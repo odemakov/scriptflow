@@ -170,6 +170,24 @@ func (sf *ScriptFlow) ApiScriptFlowStats(e *core.RequestEvent) error {
 	return e.JSON(http.StatusOK, map[string]int{"WebSocketsCount": count})
 }
 
+func (sf *ScriptFlow) ApiRunTask(e *core.RequestEvent) error {
+	taskId := e.Request.PathValue("taskId")
+
+	task, err := sf.app.FindRecordById(CollectionTasks, taskId)
+	if err != nil {
+		return e.NotFoundError("task not found", nil)
+	}
+	if !task.GetBool("active") {
+		return e.BadRequestError("task is not active", nil)
+	}
+
+	if sf.isTaskRunning(taskId) {
+		return e.JSON(http.StatusConflict, map[string]string{"message": "task is already running"})
+	}
+	go sf.runTask(taskId)
+	return e.JSON(http.StatusOK, map[string]string{"status": "started", "taskId": taskId})
+}
+
 func (sf *ScriptFlow) ApiKillRun(e *core.RequestEvent) error {
 	runId := e.Request.PathValue("runId")
 
