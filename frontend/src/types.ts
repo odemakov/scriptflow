@@ -23,19 +23,6 @@ export const CNodeStatus = {
   offline: "offline",
 } as const;
 
-export const CTerminalDefaults = {
-  cursorBlink: true,
-  // fontFamily: 'monospace',
-  // fontSize: 13,
-  lineHeight: 1.2,
-  tabStopWidth: 4,
-  convertEol: true,
-  theme: {
-    background: "#303446",
-    foreground: "#c6d0f5",
-    cursor: "#c6d0f5",
-  },
-} as const;
 
 export type Toast = {
   fired: string;

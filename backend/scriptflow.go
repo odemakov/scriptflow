@@ -381,6 +381,7 @@ func (sf *ScriptFlow) executeCommand(ctx context.Context, sshCfg *sshrun.SSHConf
 		return 0, &ScriptFlowError{"failed to write to log file"}
 	}
 	writeLine := func(stream, out string) {
+		out = strings.TrimRight(out, "\n\r")
 		line := fmt.Sprintf("[%s] [%s] %s\n", time.Now().Format(time.RFC3339), stream, out)
 		if _, err := logFile.WriteString(line); err != nil {
 			sf.app.Logger().Error("failed to write to log file", slog.Any("error", err))

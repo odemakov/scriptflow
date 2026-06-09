@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -295,6 +296,14 @@ func sendLastLines(conn *websocket.Conn, filePath string, n int) error {
 		return err
 	}
 
+	empty := 0
+	for _, line := range lines {
+		if line == "" {
+			empty++
+		}
+	}
+	log.Printf("[DEBUG] sendLastLines: requested=%d got=%d empty=%d", n, len(lines), empty)
+
 	for _, line := range lines {
 		message := line + "\n"
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
@@ -456,13 +465,17 @@ func (sf *ScriptFlow) ApiTaskLogLines(e *core.RequestEvent) error {
 	offset := 100
 	limit := 100
 	if v := e.Request.URL.Query().Get("offset"); v != "" {
-		if n, err := fmt.Sscanf(v, "%d", &offset); n != 1 || err != nil || offset < 0 {
+		if n, err := strconv.Atoi(v); err != nil || n < 0 {
 			offset = 100
+		} else {
+			offset = n
 		}
 	}
 	if v := e.Request.URL.Query().Get("limit"); v != "" {
-		if n, err := fmt.Sscanf(v, "%d", &limit); n != 1 || err != nil || limit < 1 || limit > 500 {
+		if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 500 {
 			limit = 100
+		} else {
+			limit = n
 		}
 	}
 

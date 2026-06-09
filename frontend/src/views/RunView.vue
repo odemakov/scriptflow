@@ -83,7 +83,7 @@ const crumbs = computed(() => {
       <RunCard :run="run" />
     </div>
     <div class="basis-3/4">
-      <RunLogTerminal :run="run" />
+      <RunLogTerminal :runId="runId" />
     </div>
   </div>
 </template>

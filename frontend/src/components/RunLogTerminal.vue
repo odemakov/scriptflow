@@ -2,12 +2,12 @@
 import LogViewer from "@/components/LogViewer.vue";
 
 const props = defineProps<{
-  run: IRun;
+  runId: string;
 }>();
 </script>
 
 <template>
   <div class="h-full w-full">
-    <LogViewer mode="static" :runId="props.run.id" logHeight="calc(100vh - 15rem)" />
+    <LogViewer mode="static" :runId="props.runId" logHeight="calc(100vh - 15rem)" />
   </div>
 </template>

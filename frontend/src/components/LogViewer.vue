@@ -16,6 +16,7 @@ type LogLevel = "ERROR" | "WARN" | "INFO" | "DEBUG" | "NONE";
 type LogStream = "stdout" | "stderr";
 
 interface LogLine {
+  id: number;
   ts: string;
   stream: LogStream;
   content: string;
@@ -79,6 +80,7 @@ const legacyFmtRe = /^\[([^\]]+)\] (.*)$/;
 // Run separator: [RFC3339] [scriptflow] run <id>
 const runSepRe = /^\[([^\]]+)\] \[scriptflow\] run (\S+)$/;
 const levelRe = /\b(ERROR|CRITICAL|WARNING|WARN|INFO|DEBUG)\b/i;
+let lineSeq = 0;
 
 function detectLevel(content: string): LogLevel {
   const m = content.match(levelRe);
@@ -93,6 +95,7 @@ function parseLine(raw: string): LogLine {
   const sep = raw.match(runSepRe);
   if (sep) {
     return {
+      id: lineSeq++,
       ts: sep[1],
       stream: "stdout",
       content: raw,
@@ -105,6 +108,7 @@ function parseLine(raw: string): LogLine {
   if (m1) {
     const content = m1[3];
     return {
+      id: lineSeq++,
       ts: m1[1],
       stream: m1[2] as LogStream,
       content,
@@ -117,6 +121,7 @@ function parseLine(raw: string): LogLine {
   if (m2) {
     const content = m2[2];
     return {
+      id: lineSeq++,
       ts: m2[1],
       stream: "stdout",
       content,
@@ -126,6 +131,7 @@ function parseLine(raw: string): LogLine {
     };
   }
   return {
+    id: lineSeq++,
     ts: "",
     stream: "stdout",
     content: raw,
@@ -136,7 +142,6 @@ function parseLine(raw: string): LogLine {
 }
 
 function pushLine(raw: string) {
-  if (!raw) return;
   lines.value.push(parseLine(raw));
 }
 
@@ -175,7 +180,7 @@ function highlightSearch(html: string): string {
   // Only replace in text nodes — skip content inside < ... >
   return html.replace(/(<[^>]*>)|([^<]+)/g, (_, tag, text) => {
     if (tag) return tag;
-    return text.replace(re, '<mark style="background:#E5C890;color:#303446">$1</mark>');
+    return text.replace(re, `<mark style="background:${CF.yellow};color:${CF.bg}">$1</mark>`);
   });
 }
 
@@ -215,17 +220,20 @@ watch(visibleLines, () => {
 // Static mode: fetch logs via API
 async function fetchLogs() {
   if (!props.runId) return;
+  const currentRunId = props.runId;
   lines.value = [];
   try {
-    const res = await fetch(`${config.baseUrl}api/scriptflow/run/${props.runId}/log`, {
+    const res = await fetch(`${config.baseUrl}api/scriptflow/run/${currentRunId}/log`, {
       headers: { Authorization: auth.token },
     });
+    if (currentRunId !== props.runId) return;
     const data = await res.json();
     if (data.status) throw new Error(data.message);
     for (const raw of data.logs) {
       pushLine(raw);
     }
   } catch (e: unknown) {
+    if (currentRunId !== props.runId) return;
     useToasts.addToast((e as Error).message, "error");
   }
 }
@@ -238,7 +246,6 @@ function connectWs() {
   if (!props.task?.id) return;
   wsBuffer = "";
   lines.value = [];
-  // WS sends last PAGE_SIZE lines on connect, so offset starts there
   liveLineOffset.value = PAGE_SIZE;
   hasMore.value = true;
 
@@ -255,17 +262,33 @@ function connectWs() {
   localWs.onopen = () => localWs.send(token);
 
   let fillScheduled = false;
+  let burstSettled = false;
+  let burstParts = 0;
+  let burstEmpty = 0;
   localWs.onmessage = (event: MessageEvent) => {
     if (ws !== localWs) return; // stale connection, discard
     wsBuffer += event.data;
     const parts = wsBuffer.split("\n");
     wsBuffer = parts.pop() ?? "";
+    const before = lines.value.length;
     for (const part of parts) {
+      if (!burstSettled) {
+        burstParts++;
+        if (!part) burstEmpty++;
+      }
       pushLine(part);
     }
-    if (!fillScheduled) {
+    if (burstSettled) {
+      liveLineOffset.value += lines.value.length - before;
+    } else if (!fillScheduled) {
       fillScheduled = true;
-      setTimeout(() => { if (ws === localWs) { fillScheduled = false; fillIfNeeded(); } }, 300);
+      setTimeout(() => {
+        if (ws !== localWs) return;
+        fillScheduled = false;
+        burstSettled = true;
+        console.debug(`[LogViewer] WS burst settled: parts=${burstParts} empty=${burstEmpty} displayed=${lines.value.length}`);
+        fillIfNeeded();
+      }, 300);
     }
   };
 
@@ -325,12 +348,13 @@ function onScroll() {
 // Load more until container is scrollable or no more lines remain.
 // Needed when filters hide most lines leaving content shorter than container.
 async function fillIfNeeded() {
-  if (props.mode !== "live" || !hasMore.value || loadingMore.value) return;
-  await nextTick();
+  if (props.mode !== "live") return;
   const container = logContainerRef.value;
-  if (container && container.scrollHeight <= container.clientHeight) {
+  if (!container) return;
+  await nextTick();
+  while (hasMore.value && !loadingMore.value && container.scrollHeight <= container.clientHeight) {
     await loadMoreLines();
-    await fillIfNeeded();
+    await nextTick();
   }
 }
 
@@ -351,6 +375,11 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => disconnectWs());
+
+function toggleTail() {
+  tailMode.value = !tailMode.value;
+  if (tailMode.value) scrollToBottom();
+}
 
 const levels: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG", "NONE"];
 </script>
@@ -396,19 +425,19 @@ const levels: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG", "NONE"];
       <button
         class="btn btn-xs ml-auto"
         :class="tailMode ? 'btn-success' : 'btn-ghost'"
-        @click="tailMode = !tailMode; if (tailMode) scrollToBottom()"
+        @click="toggleTail"
         title="Toggle auto-scroll"
       >Tail</button>
 
       <!-- Line count -->
-      <span class="text-xs opacity-50">{{ visibleLines.length }}/{{ lines.length }}</span>
+      <span class="text-xs opacity-50">{{ visibleLines.length }} rows</span>
     </div>
 
     <!-- Log output -->
     <div
       ref="logContainerRef"
       class="overflow-y-auto p-1 font-mono text-sm"
-      :style="`height: ${props.logHeight ?? 'calc(100vh - 20rem)'}; background: #303446; color: #C6D0F5; scrollbar-width: thin; scrollbar-color: #626880 #303446;`"
+      :style="`height: ${props.logHeight ?? 'calc(100vh - 20rem)'}; background: ${CF.bg}; color: ${CF.fg}; scrollbar-width: thin; scrollbar-color: ${CF.brightBlack} ${CF.bg};`"
       @scroll="onScroll"
     >
       <!-- Load more indicator -->
@@ -423,8 +452,8 @@ const levels: LogLevel[] = ["ERROR", "WARN", "INFO", "DEBUG", "NONE"];
       </div>
 
       <div
-        v-for="(line, i) in visibleLines"
-        :key="i"
+        v-for="line in visibleLines"
+        :key="line.id"
         class="leading-5 whitespace-pre-wrap break-all px-2 py-0"
         :style="lineStyle(line)"
         v-html="highlightSearch(line.html)"
