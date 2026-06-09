@@ -17,6 +17,9 @@ const useSubscription = useSubscriptionStore();
 const subscriptions = computed(() => useSubscription.getSubscriptions);
 const loading = ref(true);
 const isFolded = ref(config.isXS.value || config.isSM.value || config.isMD.value);
+const isLargeScreen = computed(
+  () => !config.isXS.value && !config.isSM.value && !config.isMD.value,
+);
 watch([config.isXS, config.isSM, config.isMD, config.isLG], () => {
   isFolded.value = config.isXS.value || config.isSM.value || config.isMD.value;
 });
@@ -90,7 +93,7 @@ const toggleSubscriptionActive = async (subscriptionId: string) => {
     </div>
   </div>
   <div
-    v-else-if="subscriptions.length > 0 || !(config.isXS.value || config.isSM.value || config.isMD.value)"
+    v-else-if="subscriptions.length > 0 || isLargeScreen"
     class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]"
   >
     <div class="card-body">

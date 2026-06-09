@@ -112,6 +112,10 @@ const taskLastRun = (taskId: string) => {
   }
 };
 
+const tasksWithRuns = computed(() =>
+  tasks.value.map((t: ITask) => ({ task: t, run: taskLastRun(t.id) })),
+);
+
 const fetchTasks = async () => {
   try {
     if (props.entityType === CEntityType.node) {
@@ -252,7 +256,7 @@ const crumbs = [{ label: props.entityId } as ICrumb];
       />
     </div>
 
-    <div v-if="tasks.length === 0" class="text-center py-8 text-base-content/50">
+    <div v-if="tasksWithRuns.length === 0" class="text-center py-8 text-base-content/50">
       No tasks match filter
     </div>
 
@@ -306,7 +310,7 @@ const crumbs = [{ label: props.entityId } as ICrumb];
 
         <!-- Table body -->
         <tbody>
-          <tr v-for="task in tasks" :key="task.id" class="hover:bg-base-200">
+          <tr v-for="{ task, run } in tasksWithRuns" :key="task.id" class="hover:bg-base-200">
             <td class="">
               <input
                 type="checkbox"
@@ -331,29 +335,29 @@ const crumbs = [{ label: props.entityId } as ICrumb];
             </td>
 
             <td>
-              <template v-if="taskLastRun(task.id)">
+              <template v-if="run">
                 <IdentifierUrl
-                  @click="gotoRun(task, taskLastRun(task.id))"
-                  :id="taskLastRun(task.id)?.id"
+                  @click="gotoRun(task, run)"
+                  :id="run?.id"
                 />
               </template>
             </td>
 
             <td class="whitespace-nowrap min-w-[10ch]">
-              <template v-if="taskLastRun(task.id)">
-                <RunStatus :run="taskLastRun(task.id)" />
+              <template v-if="run">
+                <RunStatus :run="run" />
               </template>
             </td>
 
             <td>
-              <template v-if="taskLastRun(task.id)">
-                <RunTimeDiff :run="taskLastRun(task.id)" />
+              <template v-if="run">
+                <RunTimeDiff :run="run" />
               </template>
             </td>
 
             <td>
-              <template v-if="taskLastRun(task.id)">
-                <RunTimeAgo :datetime="taskLastRun(task.id)?.updated" />
+              <template v-if="run">
+                <RunTimeAgo :datetime="run?.updated" />
               </template>
             </td>
           </tr>

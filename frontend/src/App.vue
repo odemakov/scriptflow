@@ -10,15 +10,13 @@ const auth = useAuthStore();
 const toasts = useToastStore();
 const router = useRouter();
 
-let wasAuthenticated = auth.isAuthenticated;
 watch(
   () => auth.isAuthenticated,
-  (val) => {
-    if (wasAuthenticated && !val) {
+  (val, oldVal) => {
+    if (oldVal && !val) {
       toasts.addToast("Session expired, please log in", "warning");
       router.push({ name: "home" });
     }
-    wasAuthenticated = val;
   },
 );
 </script>
