@@ -158,7 +158,7 @@ func (sf *ScriptFlow) ApiRunLog(e *core.RequestEvent) error {
 	}
 
 	// return {data: logs: []string}
-	return e.JSON(http.StatusOK, map[string]interface{}{
+	return e.JSON(http.StatusOK, map[string]any{
 		"logs": logs,
 	})
 }

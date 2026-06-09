@@ -122,7 +122,7 @@ type SubscriptionItem struct {
 
 // return node attributes for logging
 func nodeAttrs(node *core.Record) slog.Attr {
-	return slog.Any("node", map[string]interface{}{
+	return slog.Any("node", map[string]any{
 		"id":       node.Id,
 		"host":     node.GetString("host"),
 		"username": node.GetString("username"),
@@ -131,7 +131,7 @@ func nodeAttrs(node *core.Record) slog.Attr {
 
 // return task attributes for logging
 func taskAttrs(task *core.Record) slog.Attr {
-	return slog.Any("task", map[string]interface{}{
+	return slog.Any("task", map[string]any{
 		"id":       task.Id,
 		"name":     task.GetString("name"),
 		"schedule": task.GetString("schedule"),
@@ -140,7 +140,7 @@ func taskAttrs(task *core.Record) slog.Attr {
 
 // return project attributes for logging
 func projectAttrs(project *core.Record) slog.Attr {
-	return slog.Any("project", map[string]interface{}{
+	return slog.Any("project", map[string]any{
 		"id":     project.Id,
 		"name":   project.GetString("name"),
 		"config": project.GetString("config"),
@@ -163,7 +163,7 @@ type NotificationSlackConfig struct {
 
 // GetProjectConfig retrieves a specific attribute from the row "config" JSON field.
 // Returns the value of the attribute if found, or the defaultValue if the attribute is not present or invalid.
-func GetCollectionConfigAttr(row *core.Record, attr string, defaultValue interface{}) (interface{}, error) {
+func GetCollectionConfigAttr(row *core.Record, attr string, defaultValue any) (any, error) {
 	// Retrieve the raw "config" field from the row
 	var config ProjectConfig
 	err := row.UnmarshalJSONField("config", &config)

@@ -158,14 +158,14 @@ func (sf *ScriptFlow) sendNotification(notificationContext NotificationContext) 
 		if err != nil {
 			return err
 		}
-		return sf.sendSlackNotification(mc.Subject, message, notificationContext.Channel)
+		return sf.sendSlackNotification(message, notificationContext.Channel)
 	default:
 		return fmt.Errorf("unknown channel type: %s", channelType)
 	}
 }
 
 // send slack message
-func (sf *ScriptFlow) sendSlackNotification(subject string, message string, channel *core.Record) error {
+func (sf *ScriptFlow) sendSlackNotification(message string, channel *core.Record) error {
 	config := NotificationSlackConfig{}
 	err := channel.UnmarshalJSONField("config", &config)
 	if err != nil {
