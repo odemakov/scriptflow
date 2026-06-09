@@ -243,6 +243,13 @@ func (sf *ScriptFlow) ApiLatestRuns(e *core.RequestEvent) error {
 	return e.JSON(http.StatusOK, result)
 }
 
+func appendWithRollingWindow(logs []string, line string, maxLines int) []string {
+	if len(logs) == maxLines {
+		logs = logs[1:]
+	}
+	return append(logs, line)
+}
+
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 	file, err := os.Open(logFilePath)
 	if err != nil {
@@ -252,40 +259,22 @@ func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 
 	var collecting bool
 	var logs []string
-	logCount := 0 // Counter for the number of lines in the logs slice
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Check if the line matches the delimiter pattern
 		if matches := logDelimiterRegex.FindStringSubmatch(line); matches != nil {
-			// Extract the runId from the delimiter line
 			currentRunId := matches[1]
-
-			// Determine if we should start or stop collecting logs
 			if currentRunId == runId {
 				collecting = true
-				// Add the delimiter line, ensuring a rolling window
-				if logCount == 10000 {
-					logs = logs[1:] // Remove the first line to make space
-					logCount--      // Decrement the counter
-				}
-				logs = append(logs, line)
-				logCount++ // Increment the counter
+				logs = appendWithRollingWindow(logs, line, 10000)
 			} else {
-				// Stop collecting logs if the runId changes
 				if collecting {
 					break
 				}
 				collecting = false
 			}
 		} else if collecting {
-			// Add the log line for the matching runId, ensuring a rolling window
-			if logCount == 10000 {
-				logs = logs[1:] // Remove the first line to make space
-				logCount--      // Decrement the counter
-			}
-			logs = append(logs, line)
-			logCount++ // Increment the counter
+			logs = appendWithRollingWindow(logs, line, 10000)
 		}
 	}
 	return logs, nil

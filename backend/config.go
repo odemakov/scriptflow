@@ -294,11 +294,12 @@ func (sf *ScriptFlow) insertOrUpdate(table string, params dbx.Params, updateColu
 		setClause[i] = fmt.Sprintf("%s={:%s}", col, col)
 	}
 
+	k := keys(params)
 	query := sf.app.DB().NewQuery(fmt.Sprintf(
 		`INSERT INTO %s (%s,created,updated) VALUES (%s,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON CONFLICT (id) DO UPDATE SET %s,updated=CURRENT_TIMESTAMP`,
 		table,
-		strings.Join(keys(params), ","),
-		strings.Join(placeholders(params), ","),
+		strings.Join(k, ","),
+		strings.Join(placeholderKeys(k), ","),
 		strings.Join(setClause, ","),
 	))
 	query.Bind(params)
@@ -307,16 +308,15 @@ func (sf *ScriptFlow) insertOrUpdate(table string, params dbx.Params, updateColu
 }
 
 func keys(params dbx.Params) []string {
-	keys := make([]string, 0, len(params))
-	for k := range params {
-		keys = append(keys, k)
+	k := make([]string, 0, len(params))
+	for key := range params {
+		k = append(k, key)
 	}
-	sort.Strings(keys) // Ensure keys are sorted
-	return keys
+	sort.Strings(k)
+	return k
 }
 
-func placeholders(params dbx.Params) []string {
-	keys := keys(params) // Get sorted keys
+func placeholderKeys(keys []string) []string {
 	placeholders := make([]string, len(keys))
 	for i, k := range keys {
 		placeholders[i] = "{:" + k + "}"

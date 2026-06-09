@@ -180,7 +180,7 @@ func (sf *ScriptFlow) getProjectRetentionDetails(project *core.Record) (time.Tim
 	// logsMaxDays is returned as an interface{}, so assert its type
 	logsMaxDaysInt, ok := logsMaxDays.(int)
 	if !ok {
-		sf.app.Logger().Error("unexpected type for logsMaxDays, expected int, got: %T\n", logsMaxDays)
+		sf.app.Logger().Error("unexpected type for logsMaxDays", slog.String("got", fmt.Sprintf("%T", logsMaxDays)))
 		return time.Time{}, nil, fmt.Errorf("unexpected type for logsMaxDays")
 	}
 

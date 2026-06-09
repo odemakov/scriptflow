@@ -140,7 +140,7 @@ func taskAttrs(task *core.Record) slog.Attr {
 
 // return project attributes for logging
 func projectAttrs(project *core.Record) slog.Attr {
-	return slog.Any("task", map[string]interface{}{
+	return slog.Any("project", map[string]interface{}{
 		"id":     project.Id,
 		"name":   project.GetString("name"),
 		"config": project.GetString("config"),

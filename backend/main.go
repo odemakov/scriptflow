@@ -68,7 +68,9 @@ func createPIDFile(app *pocketbase.PocketBase) error {
 		}
 		// PID file exists but process is dead - remove stale PID file
 		app.Logger().Info("Removing stale PID file", slog.String("path", pidFile))
-		os.Remove(pidFile)
+		if err := os.Remove(pidFile); err != nil {
+			app.Logger().Warn("failed to remove stale PID file", slog.Any("error", err))
+		}
 	}
 
 	return os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
@@ -164,9 +166,8 @@ func main() {
 		if err := createPIDFile(app); err != nil {
 			sf.app.Logger().Error("failed to create PID file", slog.Any("error", err))
 			return fmt.Errorf("PID file creation failed: %w", err)
-		} else {
-			sf.app.Logger().Info("PID file created", slog.String("path", filepath.Join(app.DataDir(), "scriptflow.pid")))
 		}
+		sf.app.Logger().Info("PID file created", slog.String("path", filepath.Join(app.DataDir(), "scriptflow.pid")))
 
 		return e.Next()
 	})

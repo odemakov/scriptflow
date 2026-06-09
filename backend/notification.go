@@ -160,9 +160,8 @@ func (sf *ScriptFlow) sendNotification(notificationContext NotificationContext) 
 		}
 		return sf.sendSlackNotification(mc.Subject, message, notificationContext.Channel)
 	default:
-		sf.app.Logger().Error("unknown channel type", slog.Any("type", channelType))
+		return fmt.Errorf("unknown channel type: %s", channelType)
 	}
-	return nil
 }
 
 // send slack message
