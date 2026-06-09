@@ -123,6 +123,7 @@ export interface IProject {
   id: string;
   collectionName: string;
   name: string;
+  config?: Record<string, unknown>;
   created: string;
   updated: string;
 }
