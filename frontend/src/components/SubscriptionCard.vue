@@ -68,7 +68,10 @@ const toggleSubscriptionActive = async (subscriptionId: string) => {
 </script>
 
 <template>
-  <div v-if="loading" class="card card-compact bg-base-100 shadow-xl">
+  <div
+    v-if="loading"
+    class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]"
+  >
     <div class="card-body">
       <div class="flex justify-between items-center mb-2">
         <div class="skeleton h-6 w-48"></div>
@@ -87,13 +90,13 @@ const toggleSubscriptionActive = async (subscriptionId: string) => {
     </div>
   </div>
   <div
-    v-else-if="subscriptions.length > 0"
-    class="card card-compact bg-base-100 shadow-xl"
+    v-else-if="subscriptions.length > 0 || !(config.isXS.value || config.isSM.value || config.isMD.value)"
+    class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]"
   >
     <div class="card-body">
       <div class="flex justify-between items-center">
         <h2 class="card-title">Task subscriptions</h2>
-        <div class="dropdown dropdown-end">
+        <div v-if="subscriptions.length > 0" class="dropdown dropdown-end">
           <div tabindex="0" role="button" class="btn btn-xs">
             <MenuIcon />
           </div>
@@ -110,7 +113,13 @@ const toggleSubscriptionActive = async (subscriptionId: string) => {
           </ul>
         </div>
       </div>
-      <div :class="{ hidden: isFolded }">
+      <div
+        v-if="subscriptions.length === 0"
+        class="text-center py-4 text-base-content/50"
+      >
+        No subscriptions
+      </div>
+      <div v-else :class="{ hidden: isFolded }">
         <table class="table table-xs">
           <tbody>
             <tr v-for="subscription in subscriptions" :key="subscription.id">

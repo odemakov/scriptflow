@@ -103,6 +103,10 @@ onBeforeUnmount(() => {
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
+  <div v-else-if="!lastRuns?.length" class="text-center py-8 text-base-content/50">
+    No runs yet
+  </div>
+
   <div v-else class="overflow-x-auto">
     <table class="table table-xs">
       <!-- Table head -->

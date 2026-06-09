@@ -1,6 +1,26 @@
 <script setup lang="ts">
+import { watch } from "vue";
+import { useRouter } from "vue-router";
 import Header from "@/components/Header.vue";
 import Toasts from "@/components/Toasts.vue";
+import { useAuthStore } from "@/stores/AuthStore";
+import { useToastStore } from "@/stores/ToastStore";
+
+const auth = useAuthStore();
+const toasts = useToastStore();
+const router = useRouter();
+
+let wasAuthenticated = auth.isAuthenticated;
+watch(
+  () => auth.isAuthenticated,
+  (val) => {
+    if (wasAuthenticated && !val) {
+      toasts.addToast("Session expired, please log in", "warning");
+      router.push({ name: "home" });
+    }
+    wasAuthenticated = val;
+  },
+);
 </script>
 
 <template>

@@ -3,6 +3,7 @@ import { computed, watch, ref, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 
 import Command from "./Command.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import Identifier from "./Identifier.vue";
 import IdentifierUrl from "./IdentifierUrl.vue";
 import TrueFalse from "./TrueFalse.vue";
@@ -34,10 +35,13 @@ const lastRunStarted = computed(() => {
     return false;
   }
 });
-const nodeIsOffline = computed(() => props.task.expand?.node?.status === CNodeStatus.offline);
+const nodeIsOffline = computed(
+  () => props.task.expand?.node?.status === CNodeStatus.offline,
+);
 // this variable is used to disable the run button when a run is in progress or the task is inactive
 // we can't fully rely on the last run status because it's updated with small delay
 const runTaskButtonDisabled = ref(false);
+const confirmDialog = ref<InstanceType<typeof ConfirmDialog> | null>(null);
 
 // fold it on medium screens and below
 const isFolded = ref(config.isXS.value || config.isSM.value || config.isMD.value);
@@ -100,6 +104,13 @@ const gotoEntity = (entityType: string, entityId?: string) => {
 
 const toggleTaskActive = async () => {
   closeDropdown();
+  if (props.task.active) {
+    const ok = await confirmDialog.value?.open(
+      "Turn off task?",
+      "The task will stop being scheduled.",
+    );
+    if (!ok) return;
+  }
   try {
     await useTask.toggleTaskActive(props.task.id);
     runTaskButtonDisabled.value = lastRunStarted.value || !props.task.active;
@@ -135,6 +146,11 @@ const runTask = async () => {
 const killTask = async () => {
   closeDropdown();
   if (!lastRuns.value || lastRuns.value.length === 0) return;
+  const ok = await confirmDialog.value?.open(
+    "Kill current run?",
+    "This will terminate the running process.",
+  );
+  if (!ok) return;
 
   const runId = lastRuns.value[0].id;
   const killUrl = `${config.baseUrl}api/scriptflow/run/${runId}/kill`;
@@ -160,6 +176,7 @@ const killTask = async () => {
 </script>
 
 <template>
+  <ConfirmDialog ref="confirmDialog" />
   <div class="card card-compact bg-base-100 shadow-xl max-m-[600px] lg:max-w-[400px]">
     <div v-if="loading" class="card-body">
       <div class="skeleton h-8 w-3/4 mb-4"></div>
@@ -220,7 +237,14 @@ const killTask = async () => {
             </li>
             <li>
               <a
-                v-if="!(runTaskButtonDisabled || lastRunStarted || !props.task.active || nodeIsOffline)"
+                v-if="
+                  !(
+                    runTaskButtonDisabled ||
+                    lastRunStarted ||
+                    !props.task.active ||
+                    nodeIsOffline
+                  )
+                "
                 @click="runTask()"
               >
                 Run once
@@ -274,9 +298,13 @@ const killTask = async () => {
               <td>
                 <span
                   class="font-mono whitespace-nowrap rounded-md py-1 px-2 my-1 text-xs hover:cursor-pointer inline-flex items-center gap-1"
-                  :class="props.task.expand?.node?.status
-                    ? (nodeIsOffline ? 'badge-error bg-opacity-20' : 'badge-success bg-opacity-20')
-                    : 'bg-base-300 text-base-900'"
+                  :class="
+                    props.task.expand?.node?.status
+                      ? nodeIsOffline
+                        ? 'badge-error bg-opacity-20'
+                        : 'badge-success bg-opacity-20'
+                      : 'bg-base-300 text-base-900'
+                  "
                   @click="gotoEntity('node', props.task?.expand?.node?.id)"
                 >
                   {{ props.task.expand?.node?.name || props.task.expand?.node?.id }}

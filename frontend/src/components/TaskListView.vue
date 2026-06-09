@@ -7,12 +7,21 @@ import { useTaskStore } from "@/stores/TaskStore";
 import { useRunStore } from "@/stores/RunStore";
 import { isAutoCancelError } from "@/lib/helpers";
 
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import IdentifierUrl from "@/components/IdentifierUrl.vue";
 import Command from "@/components/Command.vue";
 import RunStatus from "@/components/RunStatus.vue";
 import RunTimeAgo from "@/components/RunTimeAgo.vue";
 import PageTitle from "@/components/PageTitle.vue";
-import { ICrumb, CRunStatus, IRun, ITask, CEntityType, EntityType, type TaskSortField } from "@/types";
+import {
+  ICrumb,
+  CRunStatus,
+  IRun,
+  ITask,
+  CEntityType,
+  EntityType,
+  type TaskSortField,
+} from "@/types";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import RunTimeDiff from "@/components/RunTimeDiff.vue";
 import { UpdateTitle, Capitalize } from "@/lib/helpers";
@@ -29,6 +38,8 @@ const useTasks = useTaskStore();
 const useRuns = useRunStore();
 
 const loading = ref(true);
+const filterText = ref("");
+const confirmDialog = ref<InstanceType<typeof ConfirmDialog> | null>(null);
 const sortField = computed(() => useTasks.sortField);
 const sortDirection = computed(() => useTasks.sortDirection);
 
@@ -40,7 +51,17 @@ const rawTasks = computed(() => {
 const lastRuns = computed(() => useRuns.getLastRuns);
 
 const tasks = computed(() => {
-  const items = [...rawTasks.value];
+  const q = filterText.value.toLowerCase();
+  const filtered = q
+    ? rawTasks.value.filter(
+        (t: ITask) =>
+          t.id.toLowerCase().includes(q) ||
+          t.name?.toLowerCase().includes(q) ||
+          t.command?.toLowerCase().includes(q) ||
+          t.schedule?.toLowerCase().includes(q),
+      )
+    : rawTasks.value;
+  const items = [...filtered];
   const dir = sortDirection.value === "asc" ? 1 : -1;
 
   return items.sort((a: ITask, b: ITask) => {
@@ -56,8 +77,12 @@ const tasks = computed(() => {
         return dir * sA.localeCompare(sB);
       }
       case "running_time": {
-        const tA = runA ? new Date(runA.updated).getTime() - new Date(runA.created).getTime() : 0;
-        const tB = runB ? new Date(runB.updated).getTime() - new Date(runB.created).getTime() : 0;
+        const tA = runA
+          ? new Date(runA.updated).getTime() - new Date(runA.created).getTime()
+          : 0;
+        const tB = runB
+          ? new Date(runB.updated).getTime() - new Date(runB.created).getTime()
+          : 0;
         return dir * (tA - tB);
       }
       case "run_updated": {
@@ -190,6 +215,14 @@ const gotoRun = (task: ITask, run: IRun) => {
 };
 
 const toggleTaskActive = async (taskId: string) => {
+  const task = rawTasks.value.find((t: ITask) => t.id === taskId);
+  if (task?.active) {
+    const ok = await confirmDialog.value?.open(
+      "Turn off task?",
+      "The task will stop being scheduled.",
+    );
+    if (!ok) return;
+  }
   try {
     await useTasks.toggleTaskActive(taskId);
   } catch (error: unknown) {
@@ -201,6 +234,7 @@ const crumbs = [{ label: props.entityId } as ICrumb];
 </script>
 
 <template>
+  <ConfirmDialog ref="confirmDialog" />
   <Breadcrumbs :crumbs="crumbs" />
   <PageTitle :title="pageTitle" />
 
@@ -208,84 +242,123 @@ const crumbs = [{ label: props.entityId } as ICrumb];
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
-  <div v-else class="overflow-x-auto">
-    <table class="table table-xs">
-      <!-- Table head -->
-      <thead>
-        <tr class="">
-          <th class=""></th>
-          <th class="sticky left-0 cursor-pointer select-none bg-base-200/50" @click="toggleSort('id')">
-            id <span :class="sortField !== 'id' && 'invisible'">{{ sortDirection === "asc" ? "\u25B2" : "\u25BC" }}</span>
-          </th>
-          <th class="">schedule</th>
-          <th class="">command</th>
-          <th class="">run id</th>
-          <th class="cursor-pointer select-none bg-base-200/50" @click="toggleSort('run_status')">
-            run status <span :class="sortField !== 'run_status' && 'invisible'">{{ sortDirection === "asc" ? "\u25B2" : "\u25BC" }}</span>
-          </th>
-          <th class="cursor-pointer select-none bg-base-200/50" @click="toggleSort('running_time')">
-            running time <span :class="sortField !== 'running_time' && 'invisible'">{{ sortDirection === "asc" ? "\u25B2" : "\u25BC" }}</span>
-          </th>
-          <th class="cursor-pointer select-none bg-base-200/50" @click="toggleSort('run_updated')">
-            run updated <span :class="sortField !== 'run_updated' && 'invisible'">{{ sortDirection === "asc" ? "\u25B2" : "\u25BC" }}</span>
-          </th>
-        </tr>
-      </thead>
+  <div v-else>
+    <div class="mb-2">
+      <input
+        v-model="filterText"
+        type="text"
+        placeholder="Filter tasks..."
+        class="input input-sm input-bordered w-full max-w-xs"
+      />
+    </div>
 
-      <!-- Table body -->
-      <tbody>
-        <tr v-for="task in tasks" :key="task.id" class="hover:bg-base-200">
-          <td class="">
-            <input
-              type="checkbox"
-              class="toggle toggle-sm"
-              :checked="task.active"
-              @change="toggleTaskActive(task.id)"
-            />
-          </td>
+    <div v-if="tasks.length === 0" class="text-center py-8 text-base-content/50">
+      No tasks match filter
+    </div>
 
-          <td class="sticky left-0">
-            <IdentifierUrl @click="gotoTask(task.id)" :id="task.id" />
-          </td>
+    <div v-else class="overflow-x-auto">
+      <table class="table table-xs">
+        <!-- Table head -->
+        <thead>
+          <tr class="">
+            <th class=""></th>
+            <th
+              class="sticky left-0 cursor-pointer select-none bg-base-200/50"
+              @click="toggleSort('id')"
+            >
+              id
+              <span :class="sortField !== 'id' && 'invisible'">{{
+                sortDirection === "asc" ? "\u25B2" : "\u25BC"
+              }}</span>
+            </th>
+            <th class="">schedule</th>
+            <th class="">command</th>
+            <th class="">run id</th>
+            <th
+              class="cursor-pointer select-none bg-base-200/50"
+              @click="toggleSort('run_status')"
+            >
+              run status
+              <span :class="sortField !== 'run_status' && 'invisible'">{{
+                sortDirection === "asc" ? "\u25B2" : "\u25BC"
+              }}</span>
+            </th>
+            <th
+              class="cursor-pointer select-none bg-base-200/50"
+              @click="toggleSort('running_time')"
+            >
+              running time
+              <span :class="sortField !== 'running_time' && 'invisible'">{{
+                sortDirection === "asc" ? "\u25B2" : "\u25BC"
+              }}</span>
+            </th>
+            <th
+              class="cursor-pointer select-none bg-base-200/50"
+              @click="toggleSort('run_updated')"
+            >
+              run updated
+              <span :class="sortField !== 'run_updated' && 'invisible'">{{
+                sortDirection === "asc" ? "\u25B2" : "\u25BC"
+              }}</span>
+            </th>
+          </tr>
+        </thead>
 
-          <td>
-            <span class="whitespace-nowrap">
-              {{ task.schedule }}
-            </span>
-          </td>
-
-          <td>
-            <Command :command="task.command" />
-          </td>
-
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <IdentifierUrl
-                @click="gotoRun(task, taskLastRun(task.id))"
-                :id="taskLastRun(task.id)?.id"
+        <!-- Table body -->
+        <tbody>
+          <tr v-for="task in tasks" :key="task.id" class="hover:bg-base-200">
+            <td class="">
+              <input
+                type="checkbox"
+                class="toggle toggle-sm"
+                :checked="task.active"
+                @change="toggleTaskActive(task.id)"
               />
-            </template>
-          </td>
+            </td>
 
-          <td class="whitespace-nowrap min-w-[10ch]">
-            <template v-if="taskLastRun(task.id)">
-              <RunStatus :run="taskLastRun(task.id)" />
-            </template>
-          </td>
+            <td class="sticky left-0">
+              <IdentifierUrl @click="gotoTask(task.id)" :id="task.id" />
+            </td>
 
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <RunTimeDiff :run="taskLastRun(task.id)" />
-            </template>
-          </td>
+            <td>
+              <span class="whitespace-nowrap">
+                {{ task.schedule }}
+              </span>
+            </td>
 
-          <td>
-            <template v-if="taskLastRun(task.id)">
-              <RunTimeAgo :datetime="taskLastRun(task.id)?.updated" />
-            </template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <td>
+              <Command :command="task.command" />
+            </td>
+
+            <td>
+              <template v-if="taskLastRun(task.id)">
+                <IdentifierUrl
+                  @click="gotoRun(task, taskLastRun(task.id))"
+                  :id="taskLastRun(task.id)?.id"
+                />
+              </template>
+            </td>
+
+            <td class="whitespace-nowrap min-w-[10ch]">
+              <template v-if="taskLastRun(task.id)">
+                <RunStatus :run="taskLastRun(task.id)" />
+              </template>
+            </td>
+
+            <td>
+              <template v-if="taskLastRun(task.id)">
+                <RunTimeDiff :run="taskLastRun(task.id)" />
+              </template>
+            </td>
+
+            <td>
+              <template v-if="taskLastRun(task.id)">
+                <RunTimeAgo :datetime="taskLastRun(task.id)?.updated" />
+              </template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>

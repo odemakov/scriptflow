@@ -1,4 +1,5 @@
 import config from "@/config";
+import { useAuthStore } from "@/stores/AuthStore";
 import HomeView from "@/views/HomeView.vue";
 import NodeView from "@/views/NodeView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
@@ -151,6 +152,13 @@ const router = createRouter({
       },
     },
   ],
+});
+
+router.beforeEach((to) => {
+  const auth = useAuthStore();
+  if (to.meta.requireAuth && !auth.isAuthenticated) {
+    return { name: "home" };
+  }
 });
 
 export default router;
