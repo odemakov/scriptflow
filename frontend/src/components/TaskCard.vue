@@ -7,6 +7,7 @@ import Identifier from "./Identifier.vue";
 import IdentifierUrl from "./IdentifierUrl.vue";
 import TrueFalse from "./TrueFalse.vue";
 import MenuIcon from "./icons/MenuIcon.vue";
+import LinkIcon from "./icons/LinkIcon.vue";
 import config from "@/config";
 import { useAuthStore } from "@/stores/AuthStore";
 import { useRunStore } from "@/stores/RunStore";
@@ -33,6 +34,7 @@ const lastRunStarted = computed(() => {
     return false;
   }
 });
+const nodeIsOffline = computed(() => props.task.expand?.node?.status === CNodeStatus.offline);
 // this variable is used to disable the run button when a run is in progress or the task is inactive
 // we can't fully rely on the last run status because it's updated with small delay
 const runTaskButtonDisabled = ref(false);
@@ -218,7 +220,7 @@ const killTask = async () => {
             </li>
             <li>
               <a
-                v-if="!(runTaskButtonDisabled || lastRunStarted || !props.task.active)"
+                v-if="!(runTaskButtonDisabled || lastRunStarted || !props.task.active || nodeIsOffline)"
                 @click="runTask()"
               >
                 Run once
@@ -270,10 +272,16 @@ const killTask = async () => {
             <tr>
               <td>Node</td>
               <td>
-                <IdentifierUrl
-                  :id="props.task.expand?.node?.id"
+                <span
+                  class="font-mono whitespace-nowrap rounded-md py-1 px-2 my-1 text-xs hover:cursor-pointer inline-flex items-center gap-1"
+                  :class="props.task.expand?.node?.status
+                    ? (nodeIsOffline ? 'badge-error bg-opacity-20' : 'badge-success bg-opacity-20')
+                    : 'bg-base-300 text-base-900'"
                   @click="gotoEntity('node', props.task?.expand?.node?.id)"
-                />
+                >
+                  {{ props.task.expand?.node?.name || props.task.expand?.node?.id }}
+                  <LinkIcon />
+                </span>
               </td>
             </tr>
             <tr>

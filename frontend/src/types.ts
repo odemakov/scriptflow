@@ -72,6 +72,7 @@ export interface INode {
   host: string;
   user: string;
   name: string;
+  status?: string;
   created: string;
   updated: string;
 }
