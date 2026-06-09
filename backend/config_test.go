@@ -37,7 +37,7 @@ func TestPlaceholders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("params=%v", test.params), func(t *testing.T) {
-			result := placeholderKeys(keys(test.params))
+			result := placeholderKeys(sortedKeys(test.params))
 			for i, v := range result {
 				if v != test.expected[i] {
 					t.Errorf("expected placeholder: %v, got: %v", test.expected[i], v)
@@ -76,7 +76,7 @@ func TestKeys(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("params=%v", test.params), func(t *testing.T) {
-			result := keys(test.params)
+			result := sortedKeys(test.params)
 			for i, v := range result {
 				if v != test.expected[i] {
 					t.Errorf("expected key: %v, got: %v", test.expected[i], v)

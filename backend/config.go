@@ -294,7 +294,7 @@ func (sf *ScriptFlow) insertOrUpdate(table string, params dbx.Params, updateColu
 		setClause[i] = fmt.Sprintf("%s={:%s}", col, col)
 	}
 
-	k := keys(params)
+	k := sortedKeys(params)
 	query := sf.app.DB().NewQuery(fmt.Sprintf(
 		`INSERT INTO %s (%s,created,updated) VALUES (%s,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON CONFLICT (id) DO UPDATE SET %s,updated=CURRENT_TIMESTAMP`,
 		table,
@@ -307,13 +307,13 @@ func (sf *ScriptFlow) insertOrUpdate(table string, params dbx.Params, updateColu
 	return err
 }
 
-func keys(params dbx.Params) []string {
-	k := make([]string, 0, len(params))
-	for key := range params {
-		k = append(k, key)
+func sortedKeys(params dbx.Params) []string {
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
 	}
-	sort.Strings(k)
-	return k
+	sort.Strings(keys)
+	return keys
 }
 
 func placeholderKeys(keys []string) []string {

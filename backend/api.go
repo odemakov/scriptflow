@@ -243,8 +243,10 @@ func (sf *ScriptFlow) ApiLatestRuns(e *core.RequestEvent) error {
 	return e.JSON(http.StatusOK, result)
 }
 
+const maxLogLines = 10000
+
 func appendWithRollingWindow(logs []string, line string, maxLines int) []string {
-	if len(logs) == maxLines {
+	if len(logs) >= maxLines {
 		logs = logs[1:]
 	}
 	return append(logs, line)
@@ -266,7 +268,7 @@ func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 			currentRunId := matches[1]
 			if currentRunId == runId {
 				collecting = true
-				logs = appendWithRollingWindow(logs, line, 10000)
+				logs = appendWithRollingWindow(logs, line, maxLogLines)
 			} else {
 				if collecting {
 					break
@@ -274,7 +276,7 @@ func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 				collecting = false
 			}
 		} else if collecting {
-			logs = appendWithRollingWindow(logs, line, 10000)
+			logs = appendWithRollingWindow(logs, line, maxLogLines)
 		}
 	}
 	return logs, nil
