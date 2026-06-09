@@ -255,7 +255,7 @@ func appendWithRollingWindow(logs []string, line string, maxLines int) []string 
 func extractLogsForRun(logFilePath, runId string) ([]string, error) {
 	file, err := os.Open(logFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open log file %v: %v", logFilePath, err)
+		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
 	defer file.Close()
 
@@ -323,7 +323,7 @@ func watchFileChanges(conn *websocket.Conn, filePath string, app *pocketbase.Poc
 	defer file.Close()
 
 	// Start at the end of the file
-	offset, err := file.Seek(0, io.SeekStart)
+	offset, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return err
 	}
@@ -422,6 +422,65 @@ func readLastLines(file *os.File, n int) ([]string, error) {
 		lines = lines[len(lines)-n:]
 	}
 	return lines, nil
+}
+
+// readLinesPage returns up to limit lines ending at (total - offset) from the end.
+// offset=0 → last limit lines; offset=100 → lines 100–199 from end.
+// hasMore=true means there are older lines before this page.
+func readLinesPage(file *os.File, offset, limit int) ([]string, bool, error) {
+	all, err := readLastLines(file, offset+limit+1)
+	if err != nil {
+		return nil, false, err
+	}
+	hasMore := len(all) > offset+limit
+	if hasMore {
+		all = all[1:] // drop the sentinel
+	}
+	// drop the last `offset` lines (already in the viewer)
+	if len(all) > offset {
+		all = all[:len(all)-offset]
+	} else {
+		return nil, false, nil
+	}
+	if len(all) > limit {
+		all = all[len(all)-limit:]
+	}
+	return all, hasMore, nil
+}
+
+// ApiTaskLogLines serves paginated log lines for the current day's task log.
+// Query params: offset (default 100), limit (default 100, max 500).
+func (sf *ScriptFlow) ApiTaskLogLines(e *core.RequestEvent) error {
+	taskId := e.Request.PathValue("taskId")
+
+	offset := 100
+	limit := 100
+	if v := e.Request.URL.Query().Get("offset"); v != "" {
+		if n, err := fmt.Sscanf(v, "%d", &offset); n != 1 || err != nil || offset < 0 {
+			offset = 100
+		}
+	}
+	if v := e.Request.URL.Query().Get("limit"); v != "" {
+		if n, err := fmt.Sscanf(v, "%d", &limit); n != 1 || err != nil || limit < 1 || limit > 500 {
+			limit = 100
+		}
+	}
+
+	logFilePath := sf.taskTodayLogFilePath(taskId)
+	file, err := os.Open(logFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return e.JSON(http.StatusOK, map[string]any{"lines": []string{}, "has_more": false})
+		}
+		return e.InternalServerError(err.Error(), nil)
+	}
+	defer file.Close()
+
+	lines, hasMore, err := readLinesPage(file, offset, limit)
+	if err != nil {
+		return e.InternalServerError(err.Error(), nil)
+	}
+	return e.JSON(http.StatusOK, map[string]any{"lines": lines, "has_more": hasMore})
 }
 
 // {year}{month}{day}.log

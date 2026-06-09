@@ -305,6 +305,7 @@ func (sf *ScriptFlow) setupApi() {
 	sf.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// WebSocket doesn't support HTTP headers(Authorization), we will use query params instead
 		e.Router.GET("/api/scriptflow/task/{taskId}/log-ws", sf.ApiTaskLogWebSocket)
+		e.Router.GET("/api/scriptflow/task/{taskId}/log", sf.ApiTaskLogLines).Bind(apis.RequireAuth())
 		e.Router.GET("/api/scriptflow/run/{runId}/log", sf.ApiRunLog).Bind(apis.RequireAuth())
 		e.Router.POST("/api/scriptflow/task/{taskId}/run", sf.ApiRunTask).Bind(apis.RequireAuth())
 		e.Router.POST("/api/scriptflow/run/{runId}/kill", sf.ApiKillRun).Bind(apis.RequireAuth())

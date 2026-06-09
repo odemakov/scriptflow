@@ -327,15 +327,6 @@ const killTask = async () => {
             </tr>
 
             <tr>
-              <td>Prepend datetime</td>
-              <td>
-                <TrueFalse
-                  v-if="props.task.prepend_datetime !== undefined"
-                  :status="props.task.prepend_datetime"
-                />
-              </td>
-            </tr>
-            <tr>
               <td>Created</td>
               <td>{{ props.task.created }}</td>
             </tr>

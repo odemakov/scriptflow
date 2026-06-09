@@ -39,14 +39,13 @@ type ConfigNode struct {
 }
 
 type ConfigTask struct {
-	Id              string `yaml:"id"`
-	Name            string `yaml:"name"`
-	Command         string `yaml:"command"`
-	Schedule        string `yaml:"schedule"`
-	Node            string `yaml:"node"`
-	Project         string `yaml:"project"`
-	Active          bool   `yaml:"active"`
-	PrependDatetime bool   `yaml:"prepend_datetime"`
+	Id       string `yaml:"id"`
+	Name     string `yaml:"name"`
+	Command  string `yaml:"command"`
+	Schedule string `yaml:"schedule"`
+	Node     string `yaml:"node"`
+	Project  string `yaml:"project"`
+	Active   bool   `yaml:"active"`
 }
 
 type ConfigChannel struct {
@@ -179,15 +178,14 @@ func (sf *ScriptFlow) updateFromConfigTasks() {
 			continue
 		}
 		err := sf.insertOrUpdate(CollectionTasks, dbx.Params{
-			"id":               task.Id,
-			"name":             task.Name,
-			"command":          task.Command,
-			"schedule":         task.Schedule,
-			"node":             task.Node,
-			"project":          task.Project,
-			"active":           task.Active,
-			"prepend_datetime": task.PrependDatetime,
-		}, "name", "command", "schedule", "node", "project", "active", "prepend_datetime")
+			"id":       task.Id,
+			"name":     task.Name,
+			"command":  task.Command,
+			"schedule": task.Schedule,
+			"node":     task.Node,
+			"project":  task.Project,
+			"active":   task.Active,
+		}, "name", "command", "schedule", "node", "project", "active")
 		if err != nil {
 			sf.app.Logger().Error("[config] failed to insert or update task", slog.Any("error", err))
 		}

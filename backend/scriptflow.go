@@ -380,25 +380,21 @@ func (sf *ScriptFlow) executeCommand(ctx context.Context, sshCfg *sshrun.SSHConf
 	if _, err := logFile.WriteString(runMark + "\n"); err != nil {
 		return 0, &ScriptFlowError{"failed to write to log file"}
 	}
-	prependDatetime := task.GetBool("prepend_datetime")
-	return sf.sshPool.RunCombinedContext(
+	writeLine := func(stream, out string) {
+		line := fmt.Sprintf("[%s] [%s] %s\n", time.Now().Format(time.RFC3339), stream, out)
+		if _, err := logFile.WriteString(line); err != nil {
+			sf.app.Logger().Error("failed to write to log file", slog.Any("error", err))
+		}
+		if err := logFile.Sync(); err != nil {
+			sf.app.Logger().Error("failed to sync log file", slog.Any("error", err))
+		}
+	}
+	return sf.sshPool.RunContext(
 		ctx,
 		sshCfg,
 		task.GetString("command"),
-		func(out string) {
-			// prepend datetime, if needed
-			if prependDatetime {
-				out = fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), out)
-			}
-			// Write output to log file
-			if _, err := logFile.WriteString(out); err != nil {
-				sf.app.Logger().Error("failed to write to log file", slog.Any("error", err))
-			}
-			// Flush output to ensure fsnotify detects the changes
-			if err := logFile.Sync(); err != nil {
-				sf.app.Logger().Error("failed to sync log file", slog.Any("error", err))
-			}
-		},
+		func(out string) { writeLine("stdout", out) },
+		func(out string) { writeLine("stderr", out) },
 	)
 }
 

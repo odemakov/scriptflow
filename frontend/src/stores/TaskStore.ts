@@ -140,7 +140,6 @@ export const useTaskStore = defineStore("tasks", () => {
             node: data.record.node,
             project: data.record.project,
             active: data.record.active,
-            prepend_datetime: data.record.prepend_datetime,
             consecutive_failure_count: data.record.consecutive_failure_count,
           });
         }

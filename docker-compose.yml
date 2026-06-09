@@ -38,6 +38,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev-vm
+    volumes:
+      - ./scripts:/scripts:ro
     networks:
       - network
 

@@ -83,16 +83,15 @@ type ScriptFlow struct {
 // }
 
 type TaskItem struct {
-	Id              string         `json:"id"`
-	Name            string         `json:"name"`
-	Command         string         `json:"command"`
-	Schedule        string         `json:"schedule"`
-	NodeId          string         `json:"node"`
-	ProjectId       string         `json:"project"`
-	Active          bool           `json:"active"`
-	PrependDateTime bool           `json:"prepend_datetime"`
-	Created         types.DateTime `db:"created" json:"created"`
-	Updated         types.DateTime `db:"updated" json:"updated"`
+	Id        string         `json:"id"`
+	Name      string         `json:"name"`
+	Command   string         `json:"command"`
+	Schedule  string         `json:"schedule"`
+	NodeId    string         `json:"node"`
+	ProjectId string         `json:"project"`
+	Active    bool           `json:"active"`
+	Created   types.DateTime `db:"created" json:"created"`
+	Updated   types.DateTime `db:"updated" json:"updated"`
 }
 
 type RunItem struct {

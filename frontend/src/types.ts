@@ -137,7 +137,6 @@ export interface ITask {
   schedule?: string;
   project: string;
   node: string;
-  prepend_datetime?: boolean;
   consecutive_failure_count?: number;
   expand: {
     project?: IProject;
