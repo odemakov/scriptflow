@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -564,6 +565,50 @@ func TestReconcileScheduler(t *testing.T) {
 
 			// NOTE: This test only verifies detection logic.
 			// Full rescheduling behavior requires database mocking for sf.app.FindRecordById()
+		})
+	}
+}
+
+func TestFormatLogLine(t *testing.T) {
+	ts := time.Date(2025, 6, 10, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name   string
+		stream string
+		out    string
+		want   string
+	}{
+		{
+			name:   "basic stdout line",
+			stream: "stdout", out: "hello world",
+			want: "[2025-06-10T12:00:00Z] [stdout] hello world\n",
+		},
+		{
+			name:   "stderr line",
+			stream: "stderr", out: "error occurred",
+			want: "[2025-06-10T12:00:00Z] [stderr] error occurred\n",
+		},
+		{
+			name:   "trailing newline stripped",
+			stream: "stdout", out: "line\n",
+			want: "[2025-06-10T12:00:00Z] [stdout] line\n",
+		},
+		{
+			name:   "trailing CR+LF stripped",
+			stream: "stdout", out: "line\r\n",
+			want: "[2025-06-10T12:00:00Z] [stdout] line\n",
+		},
+		{
+			name:   "empty output",
+			stream: "stdout", out: "",
+			want: "[2025-06-10T12:00:00Z] [stdout] \n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatLogLine(ts, tt.stream, tt.out)
+			assert.Equal(t, tt.want, got)
+			assert.True(t, strings.HasSuffix(got, "\n"), "must end with newline")
 		})
 	}
 }

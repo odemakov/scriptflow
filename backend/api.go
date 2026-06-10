@@ -296,14 +296,6 @@ func sendLastLines(conn *websocket.Conn, filePath string, n int) error {
 		return err
 	}
 
-	empty := 0
-	for _, line := range lines {
-		if line == "" {
-			empty++
-		}
-	}
-	log.Printf("[DEBUG] sendLastLines: requested=%d got=%d empty=%d", n, len(lines), empty)
-
 	for _, line := range lines {
 		message := line + "\n"
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
@@ -422,6 +414,10 @@ func readLastLines(file *os.File, n int) ([]string, error) {
 			currentLine = parts[0]
 		}
 	}
+	// Strip trailing empty string produced by a trailing newline at EOF
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
 	if currentLine != "" && len(lines) < n {
 		lines = append([]string{currentLine}, lines...)
 	}
@@ -457,27 +453,26 @@ func readLinesPage(file *os.File, offset, limit int) ([]string, bool, error) {
 	return all, hasMore, nil
 }
 
+// parseQueryInt parses v as an int with bounds [minVal, maxVal].
+// maxVal=0 means no upper bound. Returns defaultVal on parse error or out-of-range.
+func parseQueryInt(v string, defaultVal, minVal, maxVal int) int {
+	if v == "" {
+		return defaultVal
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < minVal || (maxVal > 0 && n > maxVal) {
+		return defaultVal
+	}
+	return n
+}
+
 // ApiTaskLogLines serves paginated log lines for the current day's task log.
 // Query params: offset (default 100), limit (default 100, max 500).
 func (sf *ScriptFlow) ApiTaskLogLines(e *core.RequestEvent) error {
 	taskId := e.Request.PathValue("taskId")
-
-	offset := 100
-	limit := 100
-	if v := e.Request.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err != nil || n < 0 {
-			offset = 100
-		} else {
-			offset = n
-		}
-	}
-	if v := e.Request.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 500 {
-			limit = 100
-		} else {
-			limit = n
-		}
-	}
+	q := e.Request.URL.Query()
+	offset := parseQueryInt(q.Get("offset"), 100, 0, 0)
+	limit := parseQueryInt(q.Get("limit"), 100, 1, 500)
 
 	logFilePath := sf.taskTodayLogFilePath(taskId)
 	file, err := os.Open(logFilePath)

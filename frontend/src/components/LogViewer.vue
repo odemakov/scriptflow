@@ -286,6 +286,11 @@ function connectWs() {
         if (ws !== localWs) return;
         fillScheduled = false;
         burstSettled = true;
+        // Sync offset to actual viewer line count. liveLineOffset was initialized to PAGE_SIZE
+        // assuming WS delivers exactly PAGE_SIZE lines, but live lines that arrived during the
+        // burst window are also in the viewer and must be accounted for to avoid overlapping
+        // them with the first scroll page.
+        liveLineOffset.value = lines.value.length;
         console.debug(`[LogViewer] WS burst settled: parts=${burstParts} empty=${burstEmpty} displayed=${lines.value.length}`);
         fillIfNeeded();
       }, 300);
