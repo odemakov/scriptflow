@@ -6,7 +6,7 @@ Distributed Command Scheduler with web interface. Executes commands across multi
 
 | Layer | Tech |
 |---|---|
-| Backend | Go 1.25.5, PocketBase v0.28.2, gocron v2.16.2 |
+| Backend | Go 1.25.0, PocketBase v0.39.3, gocron v2.19.1 |
 | Database | SQLite (via PocketBase) |
 | SSH | odemakov/sshrun |
 | Frontend | Vue.js 3.5.34, TypeScript 5.9.3, Pinia, vue-router, @vueuse/core |
@@ -64,6 +64,28 @@ docker compose exec backend ./scriptflow reload
 ## Commit Format
 
 `Verb Noun` — present tense, capital first word: `Add X`, `Remove Y`, `Fix Z`, `Refactor A`, `Bump B`
+
+## Dependency Updates
+
+Go version tracks PocketBase — check PocketBase's go.mod before changing it.
+
+```bash
+# 1. Find latest PocketBase release
+curl -s "https://api.github.com/repos/pocketbase/pocketbase/releases/latest" | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])"
+
+# 2. Check what Go version it requires
+curl -s "https://raw.githubusercontent.com/pocketbase/pocketbase/<version>/go.mod" | head -3
+
+# 3. If Go version changed: update Dockerfile (2 FROM lines) and Makefile (test-backend line)
+#    go.mod go directive updates automatically via go get
+
+# 4. Bump PocketBase (run from repo root — mounts backend/ into container)
+docker run --rm -v $(pwd)/backend:/app -w /app golang:1.25-alpine go get github.com/pocketbase/pocketbase@<version>
+docker run --rm -v $(pwd)/backend:/app -w /app golang:1.25-alpine go mod tidy
+docker run --rm -v $(pwd)/backend:/app -w /app golang:1.25-alpine go build ./...
+```
+
+Update the stack table in this file after bumping.
 
 ## Constraints
 
