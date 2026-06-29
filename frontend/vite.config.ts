@@ -29,7 +29,6 @@ export default defineConfig(({ mode }) => {
       CRunStatus: JSON.stringify(Types.CRunStatus),
       CNodeStatus: JSON.stringify(Types.CNodeStatus),
       CCollectionName: JSON.stringify(Types.CCollectionName),
-      CTerminalDefaults: JSON.stringify(Types.CTerminalDefaults),
     },
     resolve: {
       alias: {

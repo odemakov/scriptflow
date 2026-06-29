@@ -30,7 +30,7 @@ nodes:
     username: root
   - host: vm1
     username: deployer
-    private_key: key1
+    private_key: /root/.ssh/id_rsa
   - host: vm2
     username: root
 

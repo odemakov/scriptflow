@@ -43,6 +43,13 @@ RUN mkdir -p /root/.ssh && \
 
 RUN cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
+RUN adduser -D -s /bin/sh deployer && \
+    mkdir -p /home/deployer/.ssh && \
+    cp /root/.ssh/id_rsa.pub /home/deployer/.ssh/authorized_keys && \
+    chmod 700 /home/deployer/.ssh && \
+    chmod 600 /home/deployer/.ssh/authorized_keys && \
+    chown -R deployer:deployer /home/deployer/.ssh
+
 EXPOSE 22
 CMD ["/usr/sbin/sshd", "-D"]
 
@@ -62,6 +69,10 @@ RUN go install 'github.com/air-verse/air@<v1.63.0'
 
 COPY --from=dev-vm /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub
 COPY --from=dev-vm /root/.ssh/id_rsa /root/.ssh/id_rsa
+COPY --from=dev-vm /etc/ssh/ssh_host_rsa_key.pub /tmp/vm_host_key.pub
+RUN awk '{print "vm1 " $1 " " $2}' /tmp/vm_host_key.pub >> /root/.ssh/known_hosts && \
+    awk '{print "vm2 " $1 " " $2}' /tmp/vm_host_key.pub >> /root/.ssh/known_hosts && \
+    chmod 600 /root/.ssh/known_hosts
 
 EXPOSE 8090
 CMD [ \
