@@ -7,7 +7,7 @@ require (
 	github.com/go-co-op/gocron/v2 v2.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/odemakov/sshrun v0.0.8
+	github.com/odemakov/sshrun v0.0.10
 	github.com/pocketbase/dbx v1.12.0
 	github.com/pocketbase/pocketbase v0.39.3
 	github.com/slack-go/slack v0.19.0

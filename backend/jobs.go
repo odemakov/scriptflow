@@ -54,7 +54,7 @@ func (sf *ScriptFlow) JobCheckNodeStatus() {
 
 				// close connection to the node if it is offline
 				if newStatus == NodeStatusOffline {
-					sf.sshPool.Put(node.GetString("host"))
+					sf.sshPool.Put(nodeSSHConfig(node))
 				}
 			}
 		}(node)

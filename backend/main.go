@@ -250,7 +250,7 @@ func (sf *ScriptFlow) setupScheduler() {
 		}
 		// Close node connection when node is updated, so that checkNodeStatus can attempt to reconnect with new params
 		if e.Record.Collection().Name == CollectionNodes {
-			sf.sshPool.Put(e.Record.GetString("host"))
+			sf.sshPool.Put(nodeSSHConfig(e.Record))
 		}
 
 		return e.Next()
