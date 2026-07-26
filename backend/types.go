@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/go-co-op/gocron/v2"
 	"github.com/odemakov/sshrun"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -48,25 +47,17 @@ const (
 	RunStatusKilled        = "killed"
 )
 
-// ScriptFlowLocks encapsulates the locks for different tasks
-type ScriptFlowLocks struct {
-	scheduleTask sync.Mutex
-}
-
 type ScriptFlow struct {
 	app            *pocketbase.PocketBase
 	config         *Config
 	configFilePath string
-	scheduler      gocron.Scheduler
+	jobs           *JobRegistry
 	sshPool        *sshrun.Pool
-	locks          *ScriptFlowLocks
 	logsDir        string
 	configMutex    sync.RWMutex
 	reloadMutex    sync.Mutex
 	ctx            context.Context
 	cancelFunc     context.CancelFunc
-	activeJobs     map[string]gocron.Job
-	jobsMutex      sync.RWMutex
 	activeRuns     map[string]context.CancelFunc
 	runsMutex      sync.RWMutex
 	runningTaskIds map[string]struct{}

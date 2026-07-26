@@ -43,6 +43,13 @@ func NewJobRegistry(scheduler gocron.Scheduler, runTask func(taskId string)) *Jo
 	}
 }
 
+// Scheduler returns the underlying gocron scheduler, for callers that need to
+// manage non-task (system) jobs or the scheduler's lifecycle (Start/Shutdown).
+// Task-scoped scheduling state stays behind Schedule/Remove/Reconcile.
+func (jr *JobRegistry) Scheduler() gocron.Scheduler {
+	return jr.scheduler
+}
+
 // IsScheduled reports whether the given task currently has a job tracked
 // in the registry. This is the only read surface exposed outside the module.
 func (jr *JobRegistry) IsScheduled(taskId string) bool {

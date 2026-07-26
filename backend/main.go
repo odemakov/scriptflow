@@ -220,7 +220,7 @@ func (sf *ScriptFlow) setupScheduler() {
 		sf.scheduleActiveTasks()
 
 		// Start scheduler after all tasks are scheduled and PocketBase is fully ready
-		sf.scheduler.Start()
+		sf.jobs.Scheduler().Start()
 
 		return e.Next()
 	})
@@ -228,7 +228,7 @@ func (sf *ScriptFlow) setupScheduler() {
 	sf.app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		// Schedule new tasks
 		if e.Record.Collection().Name == CollectionTasks {
-			go sf.ScheduleTask(e.Record)
+			go sf.jobs.Schedule(sf.app, e.Record)
 		}
 		// init notification for run
 		if e.Record.Collection().Name == CollectionRuns {
@@ -241,7 +241,7 @@ func (sf *ScriptFlow) setupScheduler() {
 	sf.app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		// Update exsisitng task
 		if e.Record.Collection().Name == CollectionTasks {
-			go sf.ScheduleTask(e.Record)
+			go sf.jobs.Schedule(sf.app, e.Record)
 		}
 		// Handle run status changes
 		if e.Record.Collection().Name == CollectionRuns {
@@ -260,15 +260,13 @@ func (sf *ScriptFlow) setupScheduler() {
 	sf.app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == CollectionTasks {
 			// Remove job using job tracking system
-			if job, exists := sf.getActiveJob(e.Record.Id); exists {
-				if err := sf.scheduler.RemoveJob(job.ID()); err != nil {
-					sf.app.Logger().Error("failed to remove deleted task job",
-						slog.String("taskId", e.Record.Id),
-						slog.Any("error", err))
-				} else {
-					sf.removeActiveJob(e.Record.Id)
-					sf.app.Logger().Info("removed deleted task job", slog.String("taskId", e.Record.Id))
-				}
+			hadJob := sf.jobs.IsScheduled(e.Record.Id)
+			if err := sf.jobs.Remove(e.Record.Id); err != nil {
+				sf.app.Logger().Error("failed to remove deleted task job",
+					slog.String("taskId", e.Record.Id),
+					slog.Any("error", err))
+			} else if hadJob {
+				sf.app.Logger().Info("removed deleted task job", slog.String("taskId", e.Record.Id))
 			}
 			// it can take a while to remove all task logs, so we will do it in background
 			go sf.RemoveTaskLogs(e.Record.Id)
@@ -286,7 +284,7 @@ func (sf *ScriptFlow) setupScheduler() {
 			// In case of long running tasks it will wait for them to finish
 			// Not sure I need this
 			// sf.app.Logger().Info("stopping Scheduler")
-			// sf.scheduler.Stop()
+			// sf.jobs.Scheduler().Stop()
 
 			// mark all running tasks as interrupted, if any
 			sf.app.Logger().Info("marking all running tasks as interrupted")

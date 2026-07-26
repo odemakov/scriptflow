@@ -37,20 +37,20 @@ func NewScriptFlow(app *pocketbase.PocketBase, config *Config, configFilePath st
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &ScriptFlow{
+	sf := &ScriptFlow{
 		app:            app,
 		config:         config,
 		configFilePath: configFilePath,
 		sshPool:        sshPool,
-		scheduler:      scheduler,
-		locks:          &ScriptFlowLocks{},
 		logsDir:        filepath.Join(app.DataDir(), "..", "sf_logs"),
 		ctx:            ctx,
 		cancelFunc:     cancel,
-		activeJobs:     make(map[string]gocron.Job),
 		activeRuns:     make(map[string]context.CancelFunc),
 		runningTaskIds: make(map[string]struct{}),
-	}, nil
+	}
+	sf.jobs = NewJobRegistry(scheduler, sf.runTask)
+
+	return sf, nil
 }
 
 func (sf *ScriptFlow) Start() error {
@@ -78,7 +78,7 @@ func (sf *ScriptFlow) MarkAllRunningTasksAsInterrupted(errorMsg string) {
 
 func (sf *ScriptFlow) scheduleSystemTasks() {
 	// schedule JobCheckNodeStatus task to run every 30 seconds
-	_, err := sf.scheduler.NewJob(
+	_, err := sf.jobs.Scheduler().NewJob(
 		gocron.DurationJob(30*time.Second),
 		gocron.NewTask(func() {
 			go sf.JobCheckNodeStatus()
@@ -91,7 +91,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 	}
 
 	// schedule JobSendNotifications task to run every 30 seconds
-	_, err = sf.scheduler.NewJob(
+	_, err = sf.jobs.Scheduler().NewJob(
 		gocron.DurationJob(30*time.Second),
 		gocron.NewTask(func() {
 			go sf.JobSendNotifications()
@@ -104,7 +104,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 	}
 
 	// schedule JobRemoveOutdatedLogs task
-	_, err = sf.scheduler.NewJob(
+	_, err = sf.jobs.Scheduler().NewJob(
 		gocron.CronJob("39 * * * *", false),
 		gocron.NewTask(func() {
 			go sf.JobRemoveOutdatedLogs()
@@ -117,7 +117,7 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 	}
 
 	// schedule JobRemoveOutdatedRecords task
-	_, err = sf.scheduler.NewJob(
+	_, err = sf.jobs.Scheduler().NewJob(
 		gocron.CronJob("39 1 * * *", false),
 		gocron.NewTask(func() {
 			go sf.JobRemoveOutdatedRecords()
@@ -130,10 +130,10 @@ func (sf *ScriptFlow) scheduleSystemTasks() {
 	}
 
 	// schedule JobReconcileJobs task to run every hour
-	_, err = sf.scheduler.NewJob(
+	_, err = sf.jobs.Scheduler().NewJob(
 		gocron.CronJob("0 * * * *", false),
 		gocron.NewTask(func() {
-			go sf.reconcileJobs()
+			go sf.jobs.Reconcile(sf.app)
 		}),
 		gocron.WithTags(SystemTask, JobReconcileJobs),
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
@@ -157,98 +157,7 @@ func (sf *ScriptFlow) scheduleActiveTasks() {
 	// schedule tasks one by one
 	for _, task := range tasks {
 		// do it in go routine with a delay to avoid schedule tasks simultaneously
-		go sf.ScheduleTask(task)
-	}
-}
-
-func (sf *ScriptFlow) ScheduleTask(task *core.Record) {
-	// Acquire lock to ensure scheduler access is thread-safe
-	sf.locks.scheduleTask.Lock()
-	defer sf.locks.scheduleTask.Unlock()
-
-	taskId := task.GetString("id")
-
-	// Check if job already exists
-	existingJob, jobExists := sf.getActiveJob(taskId)
-
-	// If task is not active, remove the job if it exists
-	if !task.GetBool("active") {
-		if jobExists {
-			if err := sf.scheduler.RemoveJob(existingJob.ID()); err != nil {
-				sf.app.Logger().Error("failed to remove inactive task", taskAttrs(task), slog.Any("error", err))
-			} else {
-				sf.removeActiveJob(taskId)
-				sf.app.Logger().Info("removed inactive task", taskAttrs(task))
-			}
-		}
-		return
-	}
-
-	// Task is active - create job definition
-	sf.app.Logger().Info("schedule task", taskAttrs(task))
-	schedule := task.GetString("schedule")
-
-	var jobDefinition gocron.JobDefinition
-
-	// Parse schedule to create appropriate job definition
-	if strings.HasPrefix(schedule, "@every ") {
-		duration, parseErr := time.ParseDuration(schedule[7:])
-		if parseErr != nil {
-			sf.app.Logger().Error("failed to parse duration", taskAttrs(task), slog.Any("error", parseErr))
-			return
-		}
-		// spread tasks by 10% of duration to avoid running them simultaneously
-		min, max := durationMinMax(duration)
-		jobDefinition = gocron.DurationRandomJob(min, max)
-	} else {
-		// Resolve Jenkins-style H notation if present
-		resolvedSchedule, err := resolveHashedSchedule(schedule, taskId)
-		if err != nil {
-			sf.app.Logger().Error("invalid hashed schedule", taskAttrs(task), slog.Any("error", err))
-			return
-		}
-		if resolvedSchedule != schedule {
-			sf.app.Logger().Debug("resolved hashed schedule",
-				slog.String("taskId", taskId),
-				slog.String("original", schedule),
-				slog.String("resolved", resolvedSchedule))
-		}
-		jobDefinition = gocron.CronJob(resolvedSchedule, false)
-	}
-
-	taskFunc := gocron.NewTask(sf.runTask, taskId)
-	jobOptions := []gocron.JobOption{
-		gocron.WithTags(taskId),
-		gocron.WithSingletonMode(gocron.LimitModeReschedule),
-	}
-
-	if jobExists {
-		// Update existing job
-		updatedJob, err := sf.scheduler.Update(
-			existingJob.ID(),
-			jobDefinition,
-			taskFunc,
-			jobOptions...,
-		)
-		if err != nil {
-			sf.app.Logger().Error("failed to update task", taskAttrs(task), slog.Any("error", err))
-			return
-		}
-		sf.setActiveJob(taskId, updatedJob)
-		sf.app.Logger().Info("updated existing task", taskAttrs(task))
-	} else {
-		// Create new job
-		newJob, err := sf.scheduler.NewJob(
-			jobDefinition,
-			taskFunc,
-			jobOptions...,
-		)
-		if err != nil {
-			sf.app.Logger().Error("failed to schedule new task", taskAttrs(task), slog.Any("error", err))
-			return
-		}
-		sf.setActiveJob(taskId, newJob)
-		sf.app.Logger().Info("scheduled new task", taskAttrs(task))
+		go sf.jobs.Schedule(sf.app, task)
 	}
 }
 
@@ -500,31 +409,10 @@ func (sf *ScriptFlow) Reload() error {
 	sf.scheduleActiveTasks()
 
 	// Clean up any orphaned jobs immediately after reload
-	sf.reconcileJobs()
+	sf.jobs.Reconcile(sf.app)
 
 	sf.app.Logger().Info("Configuration reloaded successfully")
 	return nil
-}
-
-// Job management helper methods
-
-func (sf *ScriptFlow) getActiveJob(taskId string) (gocron.Job, bool) {
-	sf.jobsMutex.RLock()
-	defer sf.jobsMutex.RUnlock()
-	job, exists := sf.activeJobs[taskId]
-	return job, exists
-}
-
-func (sf *ScriptFlow) setActiveJob(taskId string, job gocron.Job) {
-	sf.jobsMutex.Lock()
-	defer sf.jobsMutex.Unlock()
-	sf.activeJobs[taskId] = job
-}
-
-func (sf *ScriptFlow) removeActiveJob(taskId string) {
-	sf.jobsMutex.Lock()
-	defer sf.jobsMutex.Unlock()
-	delete(sf.activeJobs, taskId)
 }
 
 // Active runs management
