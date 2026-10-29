@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -274,13 +275,17 @@ type mockJob struct {
 	tags []string
 }
 
-func (m *mockJob) ID() uuid.UUID                     { return m.id }
-func (m *mockJob) Tags() []string                    { return m.tags }
-func (m *mockJob) LastRun() (time.Time, error)       { return time.Time{}, nil }
-func (m *mockJob) Name() string                      { return "" }
-func (m *mockJob) NextRun() (time.Time, error)       { return time.Time{}, nil }
-func (m *mockJob) NextRuns(int) ([]time.Time, error) { return nil, nil }
-func (m *mockJob) RunNow() error                     { return nil }
+func (m *mockJob) ID() uuid.UUID                          { return m.id }
+func (m *mockJob) Tags() []string                         { return m.tags }
+func (m *mockJob) LastRun() (time.Time, error)            { return time.Time{}, nil }
+func (m *mockJob) LastRunCompletedAt() (time.Time, error) { return time.Time{}, nil }
+func (m *mockJob) LastRunStartedAt() (time.Time, error)   { return time.Time{}, nil }
+func (m *mockJob) Name() string                           { return "" }
+func (m *mockJob) NextRun() (time.Time, error)            { return time.Time{}, nil }
+func (m *mockJob) NextRuns(int) ([]time.Time, error)      { return nil, nil }
+func (m *mockJob) RunNow() error                          { return nil }
+func (m *mockJob) IsRunning() (bool, error)               { return false, nil }
+func (m *mockJob) Schedule() gocron.JobSchedule           { return nil }
 
 // Mock scheduler for testing
 type mockScheduler struct {
@@ -310,11 +315,13 @@ func (m *mockScheduler) NewJob(gocron.JobDefinition, gocron.Task, ...gocron.JobO
 func (m *mockScheduler) Update(uuid.UUID, gocron.JobDefinition, gocron.Task, ...gocron.JobOption) (gocron.Job, error) {
 	return nil, nil
 }
-func (m *mockScheduler) Start()                  {}
-func (m *mockScheduler) StopJobs() error         { return nil }
-func (m *mockScheduler) Shutdown() error         { return nil }
-func (m *mockScheduler) JobsWaitingInQueue() int { return 0 }
-func (m *mockScheduler) RemoveByTags(...string)  {}
+func (m *mockScheduler) Start()                                    {}
+func (m *mockScheduler) StopJobs() error                           { return nil }
+func (m *mockScheduler) StopJobsWithContext(context.Context) error { return nil }
+func (m *mockScheduler) Shutdown() error                           { return nil }
+func (m *mockScheduler) ShutdownWithContext(context.Context) error { return nil }
+func (m *mockScheduler) JobsWaitingInQueue() int                   { return 0 }
+func (m *mockScheduler) RemoveByTags(...string)                    {}
 
 func TestFormatLogLine(t *testing.T) {
 	ts := time.Date(2025, 6, 10, 12, 0, 0, 0, time.UTC)

@@ -8,8 +8,11 @@ RUN npm install
 COPY frontend ./
 RUN npm run build
 
+# Go version used by all backend stages (overridable via --build-arg)
+ARG GO_VERSION=1.27
+
 # Build Backend
-FROM golang:1.25-alpine AS builder-backend
+FROM golang:${GO_VERSION}-alpine AS builder-backend
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -54,7 +57,7 @@ EXPOSE 22
 CMD ["/usr/sbin/sshd", "-D"]
 
 # Development Backend
-FROM golang:1.25-alpine AS dev-backend
+FROM golang:${GO_VERSION}-alpine AS dev-backend
 WORKDIR /app
 
 RUN apk add --no-cache openssh-client
