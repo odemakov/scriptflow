@@ -9,9 +9,9 @@ Distributed Command Scheduler with web interface. Executes commands across multi
 | Backend | Go 1.27, PocketBase v0.40.6, gocron v2.23.0 |
 | Database | SQLite (via PocketBase) |
 | SSH | odemakov/sshrun |
-| Frontend | Vue.js 3.5.34, TypeScript 5.9.3, Pinia, vue-router, @vueuse/core |
+| Frontend | Vue.js 3.5.44, TypeScript 5.9.3, Pinia, vue-router, @vueuse/core |
 | UI | DaisyUI 4.12.24, TailwindCSS 3.4.19, ansi-to-html |
-| Build | Vite 6.4.2 |
+| Build | Vite 6.4.5 |
 
 ## Key Files
 
