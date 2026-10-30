@@ -18,6 +18,12 @@ const iconMapping = {
 
 <template>
   <div class="relative pb-1 md:pb-2">
+    <div v-if="$slots.left" class="absolute left-0 top-1/2 transform -translate-y-1/2">
+      <slot name="left" />
+    </div>
+    <div v-if="$slots.right" class="absolute right-0 top-1/2 transform -translate-y-1/2">
+      <slot name="right" />
+    </div>
     <div v-if="props.icon" class="absolute left-0 top-1/2 transform -translate-y-1/2">
       <component :is="iconMapping[props.icon]" />
     </div>

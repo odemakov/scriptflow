@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { useRunStore } from "@/stores/RunStore";
 import { useToastStore } from "@/stores/ToastStore";
-import { ICrumb } from "@/types";
+import { ICrumb, IRun } from "@/types";
 import PageTitle from "@/components/PageTitle.vue";
 import RunCard from "@/components/RunCard.vue";
 import RunLogTerminal from "@/components/RunLogTerminal.vue";
@@ -15,7 +15,6 @@ const useToasts = useToastStore();
 const useRuns = useRunStore();
 const route = useRoute();
 const router = useRouter();
-const runId = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id;
 const projectId = Array.isArray(route.params.projectId)
   ? route.params.projectId[0]
   : route.params.projectId;
@@ -26,15 +25,51 @@ const taskId = Array.isArray(route.params.taskId)
   ? route.params.taskId[0]
   : route.params.taskId;
 
+const runId = computed(() => (Array.isArray(route.params.id) ? route.params.id[0] : route.params.id));
 const run = computed(() => useRuns.getRun);
+const neighbors = computed(() => useRuns.getRunNeighbors[runId.value] ?? null);
+const hasPrev = computed(() => !!neighbors.value?.prev);
+const hasNext = computed(() => !!neighbors.value?.next);
 
-onMounted(async () => {
-  UpdateTitle(`Run log: ${runId}`);
+async function loadRun(id: string) {
+  UpdateTitle(`Run log: ${id}`);
   try {
-    await useRuns.fetchRun(runId);
+    await useRuns.fetchRun(id);
+  } catch (error: unknown) {
+    useToasts.addToast((error as Error).message, "error");
+    return;
+  }
+  const current = useRuns.getRun;
+  if (!current?.task || !current?.created) return;
+  try {
+    await useRuns.fetchRunNeighbors(id, current.task, current.created);
   } catch (error: unknown) {
     useToasts.addToast((error as Error).message, "error");
   }
+}
+
+function navigateTo(neighbor: IRun | null | undefined) {
+  if (!neighbor) return;
+  router.push({ name: route.name!, params: { ...route.params, id: neighbor.id } });
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === "ArrowLeft") {
+    navigateTo(neighbors.value?.prev);
+  } else if (event.key === "ArrowRight") {
+    navigateTo(neighbors.value?.next);
+  }
+}
+
+onMounted(async () => {
+  window.addEventListener("keydown", onKeydown);
+  await loadRun(runId.value);
+});
+
+watch(runId, (id) => loadRun(id));
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
 });
 
 const crumbs = computed(() => {
@@ -69,7 +104,7 @@ const crumbs = computed(() => {
   } as ICrumb);
 
   // Add run crumb
-  breadcrumbs.push({ label: runId } as ICrumb);
+  breadcrumbs.push({ label: runId.value } as ICrumb);
 
   return breadcrumbs;
 });
@@ -77,7 +112,28 @@ const crumbs = computed(() => {
 
 <template>
   <Breadcrumbs :crumbs="crumbs" />
-  <PageTitle title="Run log" />
+  <PageTitle title="Run log">
+    <template #left>
+      <button
+        class="btn btn-sm btn-ghost"
+        :disabled="!hasPrev"
+        title="Older run (Left arrow)"
+        @click="navigateTo(neighbors?.prev)"
+      >
+        &larr; Prev
+      </button>
+    </template>
+    <template #right>
+      <button
+        class="btn btn-sm btn-ghost"
+        :disabled="!hasNext"
+        title="Newer run (Right arrow)"
+        @click="navigateTo(neighbors?.next)"
+      >
+        Next &rarr;
+      </button>
+    </template>
+  </PageTitle>
   <div class="flex flex-row gap-4">
     <div class="basis-1/4">
       <RunCard :run="run" />

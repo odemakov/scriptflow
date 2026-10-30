@@ -13,6 +13,8 @@ export const useRunStore = defineStore("runs", () => {
   const lastRuns = ref({} as Record<string, IRun[]>);
   const totalRuns = ref({} as Record<string, number>);
   const run = ref({} as IRun);
+  // prev/next neighbors per runId, same task ordered by created (point-in-time)
+  const runNeighbors = ref({} as Record<string, { prev: IRun | null; next: IRun | null }>);
   // Track active subscriptions by taskId
   const activeSubscriptions = new Map<string, () => void>();
 
@@ -20,6 +22,7 @@ export const useRunStore = defineStore("runs", () => {
   const getLastRuns = computed(() => lastRuns.value);
   const getTotalRuns = computed(() => totalRuns.value);
   const getRun = computed(() => run.value);
+  const getRunNeighbors = computed(() => runNeighbors.value);
 
   function hasMoreRuns(taskId: string): boolean {
     return (lastRuns.value[taskId]?.length ?? 0) < (totalRuns.value[taskId] ?? 0);
@@ -72,6 +75,22 @@ export const useRunStore = defineStore("runs", () => {
       expand: "task",
     });
     run.value = record;
+  }
+
+  async function fetchRunNeighbors(runId: string, taskId: string, created: string) {
+    const [older, newer] = await Promise.all([
+      pb.collection(CCollectionName.runs).getList<IRun>(1, 1, {
+        requestKey: `${runId}-prev`,
+        filter: pb.filter("task.id={:taskId} && created < {:created}", { taskId, created }),
+        sort: "-created",
+      }),
+      pb.collection(CCollectionName.runs).getList<IRun>(1, 1, {
+        requestKey: `${runId}-next`,
+        filter: pb.filter("task.id={:taskId} && created > {:created}", { taskId, created }),
+        sort: "created",
+      }),
+    ]);
+    runNeighbors.value[runId] = { prev: older.items[0] ?? null, next: newer.items[0] ?? null };
   }
 
   async function subscribe(options?: { taskId?: string; projectId?: string; nodeId?: string }) {
@@ -185,9 +204,11 @@ export const useRunStore = defineStore("runs", () => {
   return {
     fetchLatestRuns,
     fetchRun,
+    fetchRunNeighbors,
     fetchRuns,
     getConsecutiveFailureCount,
     getLastRuns,
+    getRunNeighbors,
     getTotalRuns,
     getRun,
     hasMoreRuns,
