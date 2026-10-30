@@ -130,4 +130,14 @@ const isAutoCancelError = (error: unknown): boolean => {
   return error instanceof ClientResponseError && (error.isAbort || error.status === 0);
 };
 
-export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle, isAutoCancelError };
+// Returns true when the keyboard event originates from an editable element
+// (input, textarea, select, contenteditable) or has no resolvable target.
+// Used by global key handlers so shortcuts are ignored while typing.
+const isEditableTarget = (event: KeyboardEvent): boolean => {
+  const target = event.target as { tagName?: string; isContentEditable?: boolean } | null;
+  if (!target) return true;
+  const tag = (target.tagName ?? "").toUpperCase();
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(tag) || !!target.isContentEditable;
+};
+
+export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle, isAutoCancelError, isEditableTarget };

@@ -1,6 +1,9 @@
 // File: src/lib/helpers.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { Seconds2human, TimeAgo, TimeDiff } from "@/lib/helpers";
+import { Seconds2human, TimeAgo, TimeDiff, isEditableTarget } from "@/lib/helpers";
+
+const makeEvent = (target: unknown, modifiers: Partial<Record<"ctrlKey" | "metaKey" | "altKey", boolean>> = {}) =>
+  ({ target, ...modifiers }) as unknown as KeyboardEvent;
 
 describe("Seconds2human", () => {
   it('should return "0" for input 0', () => {
@@ -123,5 +126,30 @@ describe("TimeDiff", () => {
 
   it("should round milliseconds properly", () => {
     expect(TimeDiff("2025-01-15T12:00:00.000Z", "2025-01-15T12:00:30.999Z")).toBe("31s");
+  });
+});
+
+describe("isEditableTarget", () => {
+  it("should return true for input, textarea and select targets", () => {
+    expect(isEditableTarget(makeEvent({ tagName: "INPUT" }))).toBe(true);
+    expect(isEditableTarget(makeEvent({ tagName: "TEXTAREA" }))).toBe(true);
+    expect(isEditableTarget(makeEvent({ tagName: "SELECT" }))).toBe(true);
+  });
+
+  it("should be case-insensitive on tag names", () => {
+    expect(isEditableTarget(makeEvent({ tagName: "input" }))).toBe(true);
+  });
+
+  it("should return true for contenteditable targets", () => {
+    expect(isEditableTarget(makeEvent({ tagName: "DIV", isContentEditable: true }))).toBe(true);
+  });
+
+  it("should return false for non-editable targets", () => {
+    expect(isEditableTarget(makeEvent({ tagName: "BODY" }))).toBe(false);
+    expect(isEditableTarget(makeEvent({ tagName: "DIV", isContentEditable: false }))).toBe(false);
+  });
+
+  it("should return true when no target is present", () => {
+    expect(isEditableTarget(makeEvent(null))).toBe(true);
   });
 });
