@@ -2,7 +2,7 @@
 import { onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ICrumb } from "@/types";
-import { isEditableTarget } from "@/lib/helpers";
+import { shouldIgnoreShortcut } from "@/lib/helpers";
 
 const router = useRouter();
 const props = defineProps<{
@@ -10,7 +10,7 @@ const props = defineProps<{
 }>();
 
 const handleKeyPress = (event: KeyboardEvent) => {
-  if (isEditableTarget(event) || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (shouldIgnoreShortcut(event)) return;
   if (event.key === "b" || event.key === "B") {
     // follow the one before last crumb
     if (props.crumbs.length > 1) {

@@ -130,14 +130,15 @@ const isAutoCancelError = (error: unknown): boolean => {
   return error instanceof ClientResponseError && (error.isAbort || error.status === 0);
 };
 
-// Returns true when the keyboard event originates from an editable element
-// (input, textarea, select, contenteditable) or has no resolvable target.
-// Used by global key handlers so shortcuts are ignored while typing.
-const isEditableTarget = (event: KeyboardEvent): boolean => {
+// Returns true when a global keyboard shortcut should be ignored: the event
+// originates from an editable element (input, textarea, select, contenteditable),
+// has no resolvable target, or has modifier keys held (ctrl/meta/alt).
+const shouldIgnoreShortcut = (event: KeyboardEvent): boolean => {
+  if (event.ctrlKey || event.metaKey || event.altKey) return true;
   const target = event.target as { tagName?: string; isContentEditable?: boolean } | null;
   if (!target) return true;
   const tag = (target.tagName ?? "").toUpperCase();
   return ["INPUT", "TEXTAREA", "SELECT"].includes(tag) || !!target.isContentEditable;
 };
 
-export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle, isAutoCancelError, isEditableTarget };
+export { Capitalize, RunStatusClass, Seconds2human, TimeAgo, TimeDiff, UpdateTitle, isAutoCancelError, shouldIgnoreShortcut };

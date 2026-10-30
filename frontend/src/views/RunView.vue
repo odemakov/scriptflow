@@ -9,7 +9,7 @@ import PageTitle from "@/components/PageTitle.vue";
 import RunCard from "@/components/RunCard.vue";
 import RunLogTerminal from "@/components/RunLogTerminal.vue";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
-import { UpdateTitle, isEditableTarget } from "@/lib/helpers";
+import { UpdateTitle, shouldIgnoreShortcut } from "@/lib/helpers";
 
 const useToasts = useToastStore();
 const useRuns = useRunStore();
@@ -54,7 +54,7 @@ function navigateTo(neighbor: IRun | null | undefined) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (isEditableTarget(event) || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (shouldIgnoreShortcut(event)) return;
   if (event.key === "ArrowLeft") {
     navigateTo(neighbors.value?.prev);
   } else if (event.key === "ArrowRight") {

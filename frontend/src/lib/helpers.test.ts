@@ -1,6 +1,6 @@
 // File: src/lib/helpers.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { Seconds2human, TimeAgo, TimeDiff, isEditableTarget } from "@/lib/helpers";
+import { Seconds2human, TimeAgo, TimeDiff, shouldIgnoreShortcut } from "@/lib/helpers";
 
 const makeEvent = (target: unknown, modifiers: Partial<Record<"ctrlKey" | "metaKey" | "altKey", boolean>> = {}) =>
   ({ target, ...modifiers }) as unknown as KeyboardEvent;
@@ -129,27 +129,33 @@ describe("TimeDiff", () => {
   });
 });
 
-describe("isEditableTarget", () => {
+describe("shouldIgnoreShortcut", () => {
   it("should return true for input, textarea and select targets", () => {
-    expect(isEditableTarget(makeEvent({ tagName: "INPUT" }))).toBe(true);
-    expect(isEditableTarget(makeEvent({ tagName: "TEXTAREA" }))).toBe(true);
-    expect(isEditableTarget(makeEvent({ tagName: "SELECT" }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "INPUT" }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "TEXTAREA" }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "SELECT" }))).toBe(true);
   });
 
   it("should be case-insensitive on tag names", () => {
-    expect(isEditableTarget(makeEvent({ tagName: "input" }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "input" }))).toBe(true);
   });
 
   it("should return true for contenteditable targets", () => {
-    expect(isEditableTarget(makeEvent({ tagName: "DIV", isContentEditable: true }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "DIV", isContentEditable: true }))).toBe(true);
   });
 
-  it("should return false for non-editable targets", () => {
-    expect(isEditableTarget(makeEvent({ tagName: "BODY" }))).toBe(false);
-    expect(isEditableTarget(makeEvent({ tagName: "DIV", isContentEditable: false }))).toBe(false);
+  it("should return false for non-editable targets without modifiers", () => {
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "BODY" }))).toBe(false);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "DIV", isContentEditable: false }))).toBe(false);
+  });
+
+  it("should return true when ctrl, meta or alt is held", () => {
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "BODY" }, { ctrlKey: true }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "BODY" }, { metaKey: true }))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent({ tagName: "BODY" }, { altKey: true }))).toBe(true);
   });
 
   it("should return true when no target is present", () => {
-    expect(isEditableTarget(makeEvent(null))).toBe(true);
+    expect(shouldIgnoreShortcut(makeEvent(null))).toBe(true);
   });
 });
