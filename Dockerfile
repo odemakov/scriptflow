@@ -1,3 +1,6 @@
+# Go version used by all backend stages (overridable via --build-arg)
+ARG GO_VERSION=1.27
+
 # Build Frontend
 FROM node:alpine AS builder-frontend
 WORKDIR /app
@@ -7,9 +10,6 @@ RUN npm install
 
 COPY frontend ./
 RUN npm run build
-
-# Go version used by all backend stages (overridable via --build-arg)
-ARG GO_VERSION=1.27
 
 # Build Backend
 FROM golang:${GO_VERSION}-alpine AS builder-backend
